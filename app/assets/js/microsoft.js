@@ -271,7 +271,7 @@ exports.getXSTSToken = function(xblToken) {
                 if(response.statusCode === 200) {
                     resolve(body);
                 } else {
-                    reject(body || { error: 'XSTS_AUTH_ERROR', statusCode: response.statusCode });
+                    reject(body || { error: 'XSTS_AUTH_ERROR', XErr: null, statusCode: response.statusCode });
                 }
             }
         });
