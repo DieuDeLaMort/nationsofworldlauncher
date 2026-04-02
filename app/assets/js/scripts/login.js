@@ -106,9 +106,13 @@ function resolveError(err) {
     }
     else if(err.error != null) {
         // Microsoft OAuth2 token exchange errors
+        const safeError = String(err.error).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        const safeDesc = err.error_description
+            ? String(err.error_description).replace(/\+/g, ' ').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+            : "Veuillez réessayer.";
         return {
             title: "Erreur d'authentification Microsoft ! 😭",
-            desc: "Erreur : " + err.error + "<br><br>" + (err.error_description ? err.error_description.replace(/\+/g, ' ') : "Veuillez réessayer.")
+            desc: "Erreur : " + safeError + "<br><br>" + safeDesc
         }
     }
 
