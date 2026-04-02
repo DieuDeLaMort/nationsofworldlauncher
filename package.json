@@ -1,13 +1,13 @@
 {
-  "name": "paladiumlauncher",
-  "version": "0.0.1-beta.7",
-  "productName": "Paladium Launcher",
-  "description": "Paladium Launcher",
-  "author": "Paladium",
+  "name": "nationsofworldlauncher",
+  "version": "1.0.0",
+  "productName": "Nations of World",
+  "description": "Nations of World Launcher",
+  "author": "Nations of World",
   "license": "UNLICENSED",
-  "homepage": "https://paladium-pvp.fr/",
+  "homepage": "https://github.com/DieuDeLaMort/nationsofworldlauncher",
   "bugs": {
-    "url": "https://paladium-pvp.fr/index.php?forums/probl%C3%A8me-de-launcher.10/"
+    "url": "https://github.com/DieuDeLaMort/nationsofworldlauncher/issues"
   },
   "private": true,
   "main": "index.js",
@@ -48,13 +48,13 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Chaika9/paladiumlauncher.git"
+    "url": "git+https://github.com/DieuDeLaMort/nationsofworldlauncher.git"
   },
   "build": {
-    "appId": "paladiumlauncher",
-    "productName": "Paladium Launcher",
+    "appId": "nationsofworldlauncher",
+    "productName": "Nations of World",
     "artifactName": "${productName}.${ext}",
-    "copyright": "Copyright © 2019 Paladium",
+    "copyright": "Copyright © 2024 Nations of World",
     "directories": {
       "buildResources": "build",
       "output": "dist"
@@ -85,10 +85,10 @@
     },
     "linux": {
       "target": "AppImage",
-      "maintainer": "Chaika9",
-      "vendor": "Paladium",
-      "synopsis": "Paladium Launcher",
-      "description": "Paladium Launcher",
+      "maintainer": "DieuDeLaMort",
+      "vendor": "Nations of World",
+      "synopsis": "Nations of World Launcher",
+      "description": "Nations of World Launcher",
       "category": "Game"
     },
     "deb": {

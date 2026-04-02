@@ -1,6 +1,5 @@
 /**
- * Paladium Launcher - https://github.com/Chaika9/paladiumlauncher
- * Copyright (C) 2019 Paladium
+ * Nations of World Launcher
  */
 
 const $ = require('jquery');
@@ -21,9 +20,9 @@ const loggerLauncher = LoggerUtil('%c[Launcher]', 'color: #000668; font-weight: 
 const loggerSwinger = LoggerUtil('%c[Swinger]', 'color: #000668; font-weight: bold');
 const loggerAutoUpdater = LoggerUtil('%c[AutoUpdater]', 'color: #209b07; font-weight: bold');
 
-const launcherVersion = "0.0.01-d10";
+const launcherVersion = "1.0.0";
 
-loggerLauncher.log('Paladium Launcher (v' + launcherVersion + ") started on " + Library.mojangFriendlyOS() + "..");
+loggerLauncher.log('Nations of World (v' + launcherVersion + ") started on " + Library.mojangFriendlyOS() + "..");
 
 // Log deprecation and process warnings.
 process.traceProcessWarnings = true;
@@ -226,7 +225,7 @@ function onDistroLoad(data) {
                 if((version.build < versionMin.build) || (version.update < versionMin.update) || (version.minor < versionMin.minor) || (version.major < versionMin.major)) {
                     setOverlayContent('Launcher obselète',
                             'Votre launcher est obselète !' 
-                            + '<br><br><i class="fas fa-chevron-right"></i> Merci de télécharger le launcher sur le site officiel de Paladium.',
+                            + '<br><br><i class="fas fa-chevron-right"></i> Merci de télécharger le launcher sur le site officiel de Nations of World.',
                             'Fermer le launcher');
                         toggleOverlay(true);
                         setCloseHandler(() => {
@@ -604,9 +603,9 @@ function showLoading() {
     matrix.push(line15);
     matrix.push(line16);
 
-    $('.paladium-loader').show();
+    $('.now-loader').show();
     for(var i = 0; i < 16; i++) {
-        $('.paladium-loader').append('<div class="line" id="line-' + i + '"></div>');
+        $('.now-loader').append('<div class="line" id="line-' + i + '"></div>');
         for(var j = 0; j < 16; j ++) {
             var type = matrix[i][j];
             var random = Math.floor((Math.random() * 5) + 0);
