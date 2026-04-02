@@ -206,18 +206,22 @@ exports.getAuthAccount = function(uuid) {
     return config.authenticationDatabase[uuid];
 }
 
-exports.updateAuthAccount = function(uuid, accessToken) {
+exports.updateAuthAccount = function(uuid, accessToken, msRefreshToken) {
     config.authenticationDatabase[uuid].accessToken = accessToken;
+    if(msRefreshToken != null) {
+        config.authenticationDatabase[uuid].msRefreshToken = msRefreshToken;
+    }
     return config.authenticationDatabase[uuid];
 }
 
-exports.addAuthAccount = function(uuid, accessToken, username, displayName) {
+exports.addAuthAccount = function(uuid, accessToken, username, displayName, msRefreshToken) {
     config.selectedAccount = uuid;
     config.authenticationDatabase[uuid] = {
         accessToken,
         username: username.trim(),
         uuid: uuid.trim(),
-        displayName: displayName.trim()
+        displayName: displayName.trim(),
+        msRefreshToken: msRefreshToken || null
     }
     return config.authenticationDatabase[uuid];
 }

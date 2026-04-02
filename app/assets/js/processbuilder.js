@@ -210,7 +210,7 @@ class ProcessBuilder {
                         break;
                     }
                     case 'user_type': {
-                        val = 'mojang';
+                        val = 'msa';
                         break;
                     }
                 }

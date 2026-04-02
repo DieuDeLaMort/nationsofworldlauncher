@@ -4,18 +4,21 @@
  */
 
 const ConfigManager = require('./configmanager');
-const Mojang = require('./mojang');
+const Microsoft = require('./microsoft');
 
 const logger = require('./loggerutil')('%c[AuthManager]', 'color: #a02d2a; font-weight: bold');
 
-exports.addAccount = async function(username, password) {
+exports.addAccount = async function() {
     try {
-        const session = await Mojang.authenticate(username, password, ConfigManager.getClientToken());
+        const session = await Microsoft.authenticate();
         if(session.selectedProfile != null) {
-            const ret = ConfigManager.addAuthAccount(session.selectedProfile.id, session.accessToken, username, session.selectedProfile.name);
-            if(ConfigManager.getClientToken() == null) {
-                ConfigManager.setClientToken(session.clientToken);
-            }
+            const ret = ConfigManager.addAuthAccount(
+                session.selectedProfile.id,
+                session.accessToken,
+                session.selectedProfile.name,
+                session.selectedProfile.name,
+                session.msRefreshToken
+            );
             ConfigManager.save();
             return ret;
         } 
@@ -30,8 +33,6 @@ exports.addAccount = async function(username, password) {
 
 exports.removeAccount = async function(uuid) {
     try {
-        const authAcc = ConfigManager.getAuthAccount(uuid);
-        await Mojang.invalidate(authAcc.accessToken, ConfigManager.getClientToken());
         ConfigManager.removeAuthAccount(uuid);
         ConfigManager.save();
         return Promise.resolve();
@@ -43,25 +44,24 @@ exports.removeAccount = async function(uuid) {
 
 exports.validateSelected = async function() {
     const current = ConfigManager.getSelectedAccount();
-    const isValid = await Mojang.validate(current.accessToken, ConfigManager.getClientToken());
+    const isValid = await Microsoft.validate(current.accessToken);
     if(!isValid) {
         try {
-            const session = await Mojang.refresh(current.accessToken, ConfigManager.getClientToken());
-            ConfigManager.updateAuthAccount(current.uuid, session.accessToken)
+            const session = await Microsoft.refresh(current.msRefreshToken);
+            ConfigManager.updateAuthAccount(current.uuid, session.accessToken, session.msRefreshToken);
             ConfigManager.save();
         } 
         catch(err) {
             logger.debug('Error while validating selected profile:', err);
-            if(err && err.error === 'ForbiddenOperationException') {}
             
             logger.log('Account access token is invalid.');
-            return false
+            return false;
         }
         logger.log('Account access token validated.');
         return true;
     } 
     else {
         logger.log('Account access token validated.');
-        return true;;
+        return true;
     }
 }
