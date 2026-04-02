@@ -114,12 +114,18 @@ function showDistroURLPrompt() {
     const currentURL = ConfigManager.getDistroURL();
     const newURL = prompt('Entrez l\'URL de distribution :', currentURL);
     if(newURL != null && newURL.trim() !== '') {
-        ConfigManager.setDistroCustom('true');
-        ConfigManager.setDistroURL(newURL.trim());
-        ConfigManager.save();
-        loggerLauncher.log('Distribution URL changed to: ' + newURL.trim());
+        const trimmed = newURL.trim();
+        if(trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+            ConfigManager.setDistroCustom('true');
+            ConfigManager.setDistroURL(trimmed);
+            ConfigManager.save();
+            loggerLauncher.log('Distribution URL changed to: ' + trimmed);
+            initLauncher();
+        } else {
+            loggerLauncher.log('Invalid URL format, must start with http:// or https://');
+            initLauncher();
+        }
     }
-    initLauncher();
 }
 
 function parseLauncherVersion(verString) {
