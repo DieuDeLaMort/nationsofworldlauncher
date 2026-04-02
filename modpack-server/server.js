@@ -13,11 +13,21 @@
  */
 
 const express = require('express');
+const rateLimit = require('express-rate-limit');
 const path = require('path');
 const fs = require('fs');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Rate limiting to prevent abuse
+const limiter = rateLimit({
+    windowMs: 60 * 1000, // 1 minute
+    max: 60,             // 60 requests per minute per IP
+    standardHeaders: true,
+    legacyHeaders: false
+});
+app.use(limiter);
 
 // Serve static mod files from the /mods directory
 app.use('/mods', express.static(path.join(__dirname, 'mods')));
