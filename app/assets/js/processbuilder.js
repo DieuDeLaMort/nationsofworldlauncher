@@ -210,7 +210,7 @@ class ProcessBuilder {
                         break;
                     }
                     case 'user_type': {
-                        val = 'msa';
+                        val = this.authUser.type === 'offline' ? 'legacy' : 'msa';
                         break;
                     }
                 }

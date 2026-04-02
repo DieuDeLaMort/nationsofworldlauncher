@@ -3,6 +3,8 @@
  * Copyright (C) 2019 Paladium
  */
 
+const crypto = require('crypto');
+
 const ConfigManager = require('./configmanager');
 const Microsoft = require('./microsoft');
 
@@ -17,7 +19,8 @@ exports.addAccount = async function() {
                 session.accessToken,
                 session.selectedProfile.name,
                 session.selectedProfile.name,
-                session.msRefreshToken
+                session.msRefreshToken,
+                'microsoft'
             );
             ConfigManager.save();
             return ret;
@@ -29,6 +32,24 @@ exports.addAccount = async function() {
     catch (err) {
         return Promise.reject(err);
     }
+}
+
+exports.addOfflineAccount = function(username) {
+    // Generate a consistent offline UUID from the username (offline UUIDs use v3-style)
+    const offlineUUID = crypto.createHash('md5').update('OfflinePlayer:' + username).digest('hex');
+    // Format as UUID string: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx (without dashes for storage)
+    const uuid = offlineUUID.replace(/(.{8})(.{4})(.{4})(.{4})(.{12})/, '$1$2$3$4$5');
+
+    const ret = ConfigManager.addAuthAccount(
+        uuid,
+        'offline',
+        username,
+        username,
+        null,
+        'offline'
+    );
+    ConfigManager.save();
+    return ret;
 }
 
 exports.removeAccount = async function(uuid) {
@@ -44,6 +65,13 @@ exports.removeAccount = async function(uuid) {
 
 exports.validateSelected = async function() {
     const current = ConfigManager.getSelectedAccount();
+
+    // Offline accounts are always valid
+    if(current.type === 'offline') {
+        logger.log('Offline account - skipping token validation.');
+        return true;
+    }
+
     const isValid = await Microsoft.validate(current.accessToken);
     if(!isValid) {
         try {

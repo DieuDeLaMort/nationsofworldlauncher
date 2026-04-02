@@ -214,14 +214,15 @@ exports.updateAuthAccount = function(uuid, accessToken, msRefreshToken) {
     return config.authenticationDatabase[uuid];
 }
 
-exports.addAuthAccount = function(uuid, accessToken, username, displayName, msRefreshToken) {
+exports.addAuthAccount = function(uuid, accessToken, username, displayName, msRefreshToken, type) {
     config.selectedAccount = uuid;
     config.authenticationDatabase[uuid] = {
         accessToken,
         username: username.trim(),
         uuid: uuid.trim(),
         displayName: displayName.trim(),
-        msRefreshToken: msRefreshToken || null
+        msRefreshToken: msRefreshToken || null,
+        type: type || 'microsoft'
     }
     return config.authenticationDatabase[uuid];
 }
