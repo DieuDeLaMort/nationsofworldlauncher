@@ -225,7 +225,7 @@ function onDistroLoad(data) {
                 if((version.build < versionMin.build) || (version.update < versionMin.update) || (version.minor < versionMin.minor) || (version.major < versionMin.major)) {
                     setOverlayContent('Launcher obselète',
                             'Votre launcher est obselète !' 
-                            + '<br><br><i class="fas fa-chevron-right"></i> Merci de télécharger le launcher sur le site officiel de Paladium.',
+                            + '<br><br><i class="fas fa-chevron-right"></i> Merci de télécharger le launcher sur le site officiel de Nations of World.',
                             'Fermer le launcher');
                         toggleOverlay(true);
                         setCloseHandler(() => {
@@ -603,9 +603,9 @@ function showLoading() {
     matrix.push(line15);
     matrix.push(line16);
 
-    $('.paladium-loader').show();
+    $('.now-loader').show();
     for(var i = 0; i < 16; i++) {
-        $('.paladium-loader').append('<div class="line" id="line-' + i + '"></div>');
+        $('.now-loader').append('<div class="line" id="line-' + i + '"></div>');
         for(var j = 0; j < 16; j ++) {
             var type = matrix[i][j];
             var random = Math.floor((Math.random() * 5) + 0);

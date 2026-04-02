@@ -31,7 +31,7 @@ function initLauncherView() {
 // #region
 
 function initLauncherHeader() {
-    var splashes = ["Paladium V6 !"]; // TODO : Add other soon..
+    var splashes = ["Nations of World !"]; // TODO : Add other soon..
     var splashe_text = splashes[Math.floor(Math.random() * splashes.length)];
     var rand = Math.floor(Math.random() * 100);
 

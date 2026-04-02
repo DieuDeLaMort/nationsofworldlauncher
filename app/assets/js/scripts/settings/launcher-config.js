@@ -1,6 +1,6 @@
 /**
- * Paladium Launcher - https://github.com/Chaika9/paladiumlauncher
- * Copyright (C) 2019 Paladium
+ * Nations of World Launcher
+ *
  */
 
  const $initSettingsLauncherConfigGameDirectoryTextField = $('#settings-launcher-config-gamedirectory-textfield')
