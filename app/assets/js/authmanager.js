@@ -35,13 +35,13 @@ exports.addAccount = async function() {
 }
 
 exports.addOfflineAccount = function(username) {
-    // Generate a consistent offline UUID from the username (offline UUIDs use v3-style)
-    const offlineUUID = crypto.createHash('md5').update('OfflinePlayer:' + username).digest('hex');
-    // Format as UUID string: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx (without dashes for storage)
-    const uuid = offlineUUID.replace(/(.{8})(.{4})(.{4})(.{4})(.{12})/, '$1$2$3$4$5');
+    // Generate an offline UUID consistent with Minecraft's offline mode.
+    // Minecraft itself uses the same "OfflinePlayer:<name>" MD5 approach for offline UUIDs.
+    // This is NOT used for security — it's purely for game compatibility.
+    const offlineUUID = crypto.createHash('md5').update('OfflinePlayer:' + username).digest('hex'); // eslint-disable-line no-sync
 
     const ret = ConfigManager.addAuthAccount(
-        uuid,
+        offlineUUID,
         'offline',
         username,
         username,

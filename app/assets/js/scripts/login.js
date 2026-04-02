@@ -58,7 +58,7 @@ function onOfflineLogin() {
         return;
     }
     if(!/^[a-zA-Z0-9_]+$/.test(username)) {
-        showLoginError('Pseudo invalide ! 😅', 'Le pseudo ne peut contenir que des lettres, chiffres et underscores.');
+        showLoginError('Pseudo invalide ! 😅', 'Le pseudo ne peut contenir que des lettres, chiffres et tirets bas (_).');
         return;
     }
 
@@ -194,8 +194,10 @@ function loginDisabled(value) {
 
     if(value) {
         $('#login-button-loader').show();
+        $('#login-offline-button-loader').show();
     }
     else {
         $('#login-button-loader').hide();
+        $('#login-offline-button-loader').hide();
     }
 }
