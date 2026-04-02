@@ -8,15 +8,15 @@ const { BrowserWindow } = require('electron').remote;
 
 const logger = require('./loggerutil')('%c[Microsoft]', 'color: #a02d2a; font-weight: bold');
 
-// Azure AD Application (Client) ID
-// Register your app at https://portal.azure.com/#blade/Microsoft_AAD_RegisteredApps
-// Required: Redirect URI = https://login.microsoftonline.com/common/oauth2/nativeclient
-// Required scopes: XboxLive.signin offline_access
-const CLIENT_ID = 'd7c14e41-5a81-48a4-b079-f0fed1508713';
-const REDIRECT_URI = 'https://login.microsoftonline.com/common/oauth2/nativeclient';
+// Microsoft / Xbox Live OAuth – uses the public Minecraft client ID
+// and the Windows Live endpoints (same approach as the msmc library).
+// This is Microsoft's official public client ID for the Minecraft launcher,
+// widely used by open-source launchers (msmc, prismarine-auth, etc.).
+const CLIENT_ID = '00000000402b5328';
+const REDIRECT_URI = 'https://login.live.com/oauth20_desktop.srf';
 
-const MICROSOFT_AUTH_URL = 'https://login.microsoftonline.com/consumers/oauth2/v2.0/authorize';
-const MICROSOFT_TOKEN_URL = 'https://login.microsoftonline.com/consumers/oauth2/v2.0/token';
+const MICROSOFT_AUTH_URL = 'https://login.live.com/oauth20_authorize.srf';
+const MICROSOFT_TOKEN_URL = 'https://login.live.com/oauth20_token.srf';
 const XBOX_LIVE_AUTH_URL = 'https://user.auth.xboxlive.com/user/authenticate';
 const XSTS_AUTH_URL = 'https://xsts.auth.xboxlive.com/xsts/authorize';
 const MINECRAFT_AUTH_URL = 'https://api.minecraftservices.com/authentication/login_with_xbox';
@@ -25,7 +25,7 @@ const MINECRAFT_STORE_URL = 'https://api.minecraftservices.com/entitlements/mcst
 
 const statuses = [
     {
-        service: 'login.microsoftonline.com',
+        service: 'login.live.com',
         status: 'grey',
         name: 'Microsoft Authentication',
         essential: true
@@ -173,8 +173,7 @@ exports.getMicrosoftToken = function(authCode) {
                 client_id: CLIENT_ID,
                 code: authCode,
                 grant_type: 'authorization_code',
-                redirect_uri: REDIRECT_URI,
-                scope: 'XboxLive.signin offline_access'
+                redirect_uri: REDIRECT_URI
             },
             json: true,
             timeout: 10000
@@ -202,8 +201,7 @@ exports.refreshMicrosoftToken = function(refreshToken) {
             form: {
                 client_id: CLIENT_ID,
                 refresh_token: refreshToken,
-                grant_type: 'refresh_token',
-                scope: 'XboxLive.signin offline_access'
+                grant_type: 'refresh_token'
             },
             json: true,
             timeout: 10000
