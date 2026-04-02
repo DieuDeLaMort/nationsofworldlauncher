@@ -171,8 +171,8 @@ exports.setDistroCustom = function(distroCustom) {
 }
 
 exports.getDistroURL = function() {
-    let distroURL = 'http://51.77.196.230/launcher/beta-version/distribution.json';
-    if(config.settings.launcher.distroCustom == 'true') {
+    let distroURL = 'https://raw.githubusercontent.com/DieuDeLaMort/nationsofworldlauncher/master/distribution.json';
+    if(config.settings.launcher.distroCustom == 'true' && config.settings.launcher.distroURL != null) {
         distroURL = config.settings.launcher.distroURL;
     }
     return distroURL;
