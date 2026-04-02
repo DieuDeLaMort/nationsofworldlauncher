@@ -39,25 +39,25 @@
     </div>
     <div class="settings-panel-right">
         <!-- User : Compte -->
-        <% include settings/user-compte.ejs %>
+        <%- include('settings/user-compte.ejs') %>
 
         <!-- Java : Memory -->
-        <% include settings/java-memory.ejs %>
+        <%- include('settings/java-memory.ejs') %>
 
         <!-- Java : Executable -->
-        <% include settings/java-executable.ejs %>
+        <%- include('settings/java-executable.ejs') %>
 
         <!-- Launcher : Config -->
-        <% include settings/launcher-config.ejs %>
+        <%- include('settings/launcher-config.ejs') %>
 
         <!-- Launcher : Distribution -->
-        <% include settings/launcher-distribution.ejs %>
+        <%- include('settings/launcher-distribution.ejs') %>
 
         <!-- Cgv -->
-        <% include settings/cgv.ejs %>
+        <%- include('settings/cgv.ejs') %>
         
         <!-- Pdc -->
-        <% include settings/pdc.ejs %>
+        <%- include('settings/pdc.ejs') %>
     </div>
     <script src="./assets/js/scripts/settings.js"></script>
 </div>

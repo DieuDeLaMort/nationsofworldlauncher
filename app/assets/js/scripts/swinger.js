@@ -4,7 +4,8 @@
  */
 
 const $ = require('jquery');
-const {ipcRenderer, remote, shell, webFrame} = require('electron');
+const {ipcRenderer, shell, webFrame} = require('electron');
+const remote = require('@electron/remote');
 const request = require('request');
 const cp = require('child_process');
 const path = require('path');
@@ -44,7 +45,6 @@ remote.getCurrentWebContents().on('devtools-opened', () => {
 // Disable zoom, needed for darwin.
 webFrame.setZoomLevel(0);
 webFrame.setVisualZoomLevelLimits(1, 1);
-webFrame.setLayoutZoomLevelLimits(0, 0);
 
 $(function() {
     loggerSwinger.log('JQuery Initialized.');

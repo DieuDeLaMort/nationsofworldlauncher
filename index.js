@@ -4,12 +4,16 @@
  */
 
 const {app, BrowserWindow, ipcMain} = require('electron');
+const remoteMain = require('@electron/remote/main');
 const autoUpdater = require('electron-updater').autoUpdater;
 const path = require('path');
 const url = require('url');
 const ejse = require('ejs-electron');
 
 const isDev = require('./app/assets/js/isdev');
+
+// Initialize @electron/remote so renderer processes can use it.
+remoteMain.initialize();
 
 let frame;
 let isInitAutoUpdater = false;
@@ -110,11 +114,13 @@ function createWindow() {
         webPreferences: {
             preload: path.join(__dirname, 'app', 'assets', 'js', 'preloader.js'),
             nodeIntegration: true,
-            contextIsolation: false,
-            enableRemoteModule: true
+            contextIsolation: false
         },
         backgroundColor: '#2f2f2f'
     });
+
+    // Enable @electron/remote for the main window's renderer process.
+    remoteMain.enable(frame.webContents);
 
     frame.loadURL(url.format({
         pathname: path.join(__dirname, 'app', 'app.ejs'),
@@ -122,7 +128,7 @@ function createWindow() {
         slashes: true
     }));
 
-    frame.setMenu(null);
+    frame.removeMenu();
     frame.setResizable(true);
 
     frame.on('closed', () => {
