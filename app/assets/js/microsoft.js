@@ -148,6 +148,13 @@ exports.getAuthCode = function() {
             handleNavigation(url);
         });
 
+        // Fallback: did-navigate fires after all navigation types complete,
+        // ensuring the redirect is captured even if will-redirect/will-navigate
+        // don't fire (e.g. same-origin redirects in some Electron versions).
+        authWindow.webContents.on('did-navigate', (event, url) => {
+            handleNavigation(url);
+        });
+
         authWindow.on('closed', () => {
             if(!resolved) {
                 reject(new Error('AUTH_WINDOW_CLOSED'));

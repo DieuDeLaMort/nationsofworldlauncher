@@ -97,6 +97,19 @@ function resolveError(err) {
                 desc: "Le serveur d'authentification de Microsoft est actuellement hors ligne ou inaccessible. <br>S'il vous plaît attendez un peu et essayez à nouveau. <br><br>Vous pouvez vérifier l'état du serveur sur <a href=\"https://support.xbox.com/fr-FR/xbox-live-status\">Xbox Live Status</a>."
             }
         }
+        else if(err.code === 'ETIMEDOUT' || err.code === 'ESOCKETTIMEDOUT') {
+            return {
+                title: "Délai d'attente dépassé ! ⏳",
+                desc: "La connexion au serveur d'authentification Microsoft a expiré. <br><br>Veuillez vérifier votre connexion Internet et réessayer."
+            }
+        }
+    }
+    else if(err.error != null) {
+        // Microsoft OAuth2 token exchange errors
+        return {
+            title: "Erreur d'authentification Microsoft ! 😭",
+            desc: "Erreur : " + err.error + "<br><br>" + (err.error_description ? err.error_description.replace(/\+/g, ' ') : "Veuillez réessayer.")
+        }
     }
 
     return {
