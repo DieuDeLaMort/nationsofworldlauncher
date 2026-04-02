@@ -22,7 +22,7 @@
         {
             "id": "nationsofworld",
             "name": "Nations of World",
-            "description": "Nations of World - Serveur Minecraft",
+            "description": "Nations of World - Custom Modpack",
             "version": "1.0.0",
             "minecraftVersion": "1.12.2",
             "mainServer": true,
