@@ -1,0 +1,66 @@
+{
+    "maintenance": {
+        "enabled": false,
+        "message": ""
+    },
+    "versionMinimum": "0.0.01-d1",
+    "java": {
+        "windows": {
+            "url": "https://corretto.aws/downloads/latest/amazon-corretto-17-x64-windows-jdk.zip",
+            "fileName": "jdk-17-windows.zip"
+        },
+        "osx": {
+            "url": "https://corretto.aws/downloads/latest/amazon-corretto-17-x64-macos-jdk.tar.gz",
+            "fileName": "jdk-17-osx.tar.gz"
+        },
+        "linux": {
+            "url": "https://corretto.aws/downloads/latest/amazon-corretto-17-x64-linux-jdk.tar.gz",
+            "fileName": "jdk-17-linux.tar.gz"
+        }
+    },
+    "instances": [
+        {
+            "id": "nationsofworld",
+            "name": "Nations of World",
+            "description": "Nations of World - Serveur Minecraft",
+            "version": "1.0.0",
+            "minecraftVersion": "1.12.2",
+            "mainServer": true,
+            "mainInstance": true,
+            "ignored": [],
+            "modules": [
+                {
+                    "id": "net.minecraftforge:forge:1.12.2-14.23.5.2860",
+                    "name": "Minecraft Forge 1.12.2",
+                    "type": "ForgeHosted",
+                    "required": {
+                        "value": true,
+                        "def": true
+                    },
+                    "artifact": {
+                        "size": 4464068,
+                        "url": "https://maven.minecraftforge.net/net/minecraftforge/forge/1.12.2-14.23.5.2860/forge-1.12.2-14.23.5.2860-universal.jar",
+                        "MD5": ""
+                    },
+                    "subModules": [
+                        {
+                            "id": "net.minecraft:client:1.12.2@VersionManifest",
+                            "name": "Minecraft 1.12.2",
+                            "type": "VersionManifest",
+                            "required": {
+                                "value": true,
+                                "def": true
+                            },
+                            "artifact": {
+                                "size": 0,
+                                "url": "https://launchermeta.mojang.com/v1/packages/6e69e85d0f85f4f4b9e12dd99d102f8c4f1b05c1/1.12.2.json",
+                                "MD5": ""
+                            },
+                            "subModules": []
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}

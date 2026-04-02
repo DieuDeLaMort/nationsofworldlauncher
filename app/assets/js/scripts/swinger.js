@@ -91,18 +91,41 @@ function initLauncher() {
         loggerLauncher.log('Failed to load distribution index.');
         loggerLauncher.error(err);
 
-        setOverlayContent('Impossible de ce connecter au serveur 😭',
-            'Merci de vérifier votre connexion à internet ou votre proxy si vous en utilisez un.',
-            'Fermer le launcher', null, 15, 'Tentative de reconnexion dans');
+        setOverlayContent('Impossible de se connecter au serveur 😭',
+            'Merci de vérifier votre connexion à internet ou votre proxy si vous en utilisez un.'
+            + '<br><br>URL actuelle : <span style="color: #ff8326; word-break: break-all;">' + ConfigManager.getDistroURL() + '</span>',
+            'Fermer le launcher', 'Modifier l\'URL', 15, 'Tentative de reconnexion dans');
         toggleOverlay(true);
         setCloseHandler(() => {
             closeLauncher();
+        });
+        setActionHandler(() => {
+            toggleOverlay(false);
+            showDistroURLPrompt();
         });
         setTimeout(function() {
             toggleOverlay(false);
             initLauncher();
         }, 15000);
     });
+}
+
+function showDistroURLPrompt() {
+    const currentURL = ConfigManager.getDistroURL();
+    const newURL = prompt('Entrez l\'URL de distribution :', currentURL);
+    if(newURL != null && newURL.trim() !== '') {
+        const trimmed = newURL.trim();
+        if(trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+            ConfigManager.setDistroCustom('true');
+            ConfigManager.setDistroURL(trimmed);
+            ConfigManager.save();
+            loggerLauncher.log('Distribution URL changed to: ' + trimmed);
+            initLauncher();
+        } else {
+            loggerLauncher.log('Invalid URL format, must start with http:// or https://');
+            initLauncher();
+        }
+    }
 }
 
 function parseLauncherVersion(verString) {
@@ -253,7 +276,7 @@ function onDistroLoad(data) {
                         loggerAutoUpdater.debug('Error Code:', info.code);
                     }
 
-                    setOverlayContent('Impossible de ce connecter au serveur 😭',
+                    setOverlayContent('Impossible de se connecter au serveur 😭',
                         'Merci de vérifier votre connexion à internet ou votre proxy si vous en utilisez un.',
                         'Fermer le launcher', 'Réessayer');
                     toggleOverlay(true);
