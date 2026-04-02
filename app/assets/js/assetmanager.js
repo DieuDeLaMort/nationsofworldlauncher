@@ -712,8 +712,10 @@ class AssetManager extends EventEmitter {
                             else if(h != null && h.indexOf('\\') > -1) {
                                 h = h.substring(0, h.indexOf('\\'));
                             }
-                            const pos = path.join(targetPath, h);
-                            self.emit('complete', 'java', JavaManager.javaExecFromRoot(pos));
+                            if(h != null) {
+                                const pos = path.join(targetPath, h);
+                                self.emit('complete', 'java', JavaManager.javaExecFromRoot(pos));
+                            }
                         });
                     }
                     catch(err) {
@@ -739,12 +741,17 @@ class AssetManager extends EventEmitter {
                                 if(err) {
                                     console.log(err);
                                 }
-                                if(h.indexOf('/') > -1) {
+                                if(h != null && h.indexOf('/') > -1) {
                                     h = h.substring(0, h.indexOf('/'));
                                 }
+                                else if(h != null && h.indexOf('\\') > -1) {
+                                    h = h.substring(0, h.indexOf('\\'));
+                                }
 
-                                const pos = path.join(targetPath, h);
-                                self.emit('complete', 'java', JavaManager.javaExecFromRoot(pos));
+                                if(h != null) {
+                                    const pos = path.join(targetPath, h);
+                                    self.emit('complete', 'java', JavaManager.javaExecFromRoot(pos));
+                                }
                             });
                         });
                 }
