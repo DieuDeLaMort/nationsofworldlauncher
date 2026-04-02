@@ -4,7 +4,7 @@
  */
 
 const request = require('request');
-const { BrowserWindow } = require('electron').remote;
+const { BrowserWindow } = require('@electron/remote');
 
 const logger = require('./loggerutil')('%c[Microsoft]', 'color: #a02d2a; font-weight: bold');
 
@@ -101,7 +101,7 @@ exports.getAuthCode = function() {
         });
 
         authWindow.loadURL(authUrl);
-        authWindow.setMenu(null);
+        authWindow.removeMenu();
 
         let resolved = false;
 
