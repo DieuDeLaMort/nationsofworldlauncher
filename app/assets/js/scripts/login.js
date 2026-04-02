@@ -5,32 +5,20 @@
 
 const loginForm = document.getElementById('login-form');
 const loginButton = document.getElementById('login-button');
+const loginOfflineButton = document.getElementById('login-offline-button');
+const loginOfflineUsername = document.getElementById('login-offline-username');
 
 loginForm.onsubmit = () => { 
     return false; 
 }
 
+// ─── Microsoft Login ────────────────────────────────────────────────────────
+
 loginButton.addEventListener('click', () => {
-    onLogin();
+    onMicrosoftLogin();
 });
 
-$("#login-help-button").click(function() {
-    setOverlayContent('Aide',
-        '~~ C\'est pour bientôt ! 💜', 
-        'Retour');
-    toggleOverlay(true);
-    setCloseHandler();
-});
-
-function showLoginError(title, value) {
-    setOverlayContent(title,
-        value, 
-        'Retour');
-    toggleOverlay(true);
-    setCloseHandler();
-}
-
-function onLogin() {
+function onMicrosoftLogin() {
     formDisabled(true);
 
     AuthManager.addAccount().then((value) => {
@@ -47,6 +35,74 @@ function onLogin() {
         showLoginError(errF.title, errF.desc);
     });
 }
+
+// ─── Offline / Crack Login ──────────────────────────────────────────────────
+
+loginOfflineButton.addEventListener('click', () => {
+    onOfflineLogin();
+});
+
+loginOfflineUsername.addEventListener('keydown', (e) => {
+    if(e.key === 'Enter') {
+        e.preventDefault();
+        onOfflineLogin();
+    }
+});
+
+function onOfflineLogin() {
+    const username = loginOfflineUsername.value.trim();
+
+    // Validate username: 3-16 chars, alphanumeric + underscore only
+    if(username.length < 3 || username.length > 16) {
+        showLoginError('Pseudo invalide ! 😅', 'Le pseudo doit contenir entre 3 et 16 caractères.');
+        return;
+    }
+    if(!/^[a-zA-Z0-9_]+$/.test(username)) {
+        showLoginError('Pseudo invalide ! 😅', 'Le pseudo ne peut contenir que des lettres, chiffres et tirets bas (_).');
+        return;
+    }
+
+    formDisabled(true);
+
+    try {
+        AuthManager.addOfflineAccount(username);
+        setTimeout(() => {
+            switchView(getCurrentView(), VIEWS.launcher, () => {
+                formDisabled(false);
+            });
+            initLauncherView();
+        }, 500);
+    } catch(err) {
+        formDisabled(false);
+        showLoginError('Erreur ! 😭', 'Une erreur est survenue lors de la connexion hors-ligne.');
+    }
+}
+
+// ─── Help Button ────────────────────────────────────────────────────────────
+
+$("#login-help-button").click(function() {
+    setOverlayContent('Aide',
+        '<b>Connexion Microsoft :</b><br>'
+        + 'Connectez-vous avec votre compte Microsoft qui possède Minecraft Java Édition.<br><br>'
+        + '<b>Mode hors-ligne :</b><br>'
+        + 'Entrez un pseudo pour jouer sans compte Microsoft (mode crack). '
+        + 'Certaines fonctionnalités multijoueur peuvent être limitées.', 
+        'Retour');
+    toggleOverlay(true);
+    setCloseHandler();
+});
+
+// ─── Error Display ──────────────────────────────────────────────────────────
+
+function showLoginError(title, value) {
+    setOverlayContent(title,
+        value, 
+        'Retour');
+    toggleOverlay(true);
+    setCloseHandler();
+}
+
+// ─── Error Resolution ───────────────────────────────────────────────────────
 
 function resolveError(err) {
     // Microsoft/Xbox/Minecraft errors
@@ -122,6 +178,8 @@ function resolveError(err) {
     }
 }
 
+// ─── Form State ─────────────────────────────────────────────────────────────
+
 function formDisabled(value) {
     loginDisabled(value);
 }
@@ -130,11 +188,16 @@ function loginDisabled(value) {
     if(loginButton.disabled !== value) {
         loginButton.disabled = value;
     }
+    if(loginOfflineButton.disabled !== value) {
+        loginOfflineButton.disabled = value;
+    }
 
     if(value) {
         $('#login-button-loader').show();
+        $('#login-offline-button-loader').show();
     }
     else {
         $('#login-button-loader').hide();
+        $('#login-offline-button-loader').hide();
     }
 }

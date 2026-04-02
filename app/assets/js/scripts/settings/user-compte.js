@@ -6,15 +6,24 @@
 function initSettingsUserCompteTab() {
     const selectedAcc = ConfigManager.getSelectedAccount();
     $("#settings-user-compte-displayname-label").html(selectedAcc.displayName);
-    $("#settings-user-compte-username-label").html(selectedAcc.username);
+
+    if(selectedAcc.type === 'offline') {
+        $("#settings-user-compte-username-label").html('Mode hors-ligne');
+    } else {
+        $("#settings-user-compte-username-label").html(selectedAcc.username);
+    }
+
     $("#settings-user-compte-profile").css("background-image", "url('https://mc-heads.net/head/" + selectedAcc.displayName + "')");
 }
 
 $("#settings-user-logout-button").click(function() {
-    setOverlayContent('Se déconnecter',
-        'Êtes-vous sûr de vouloir vous déconnecter ?'
-        + '<br><br>Il faudra de nouveau vous connecter avec votre compte Microsoft pour vous reconnecter. 😐', 
-        'Retour', 'Se déconnecter');
+    const selectedAcc = ConfigManager.getSelectedAccount();
+    const logoutMsg = selectedAcc.type === 'offline'
+        ? 'Êtes-vous sûr de vouloir vous déconnecter du mode hors-ligne ?'
+        : 'Êtes-vous sûr de vouloir vous déconnecter ?'
+            + '<br><br>Il faudra de nouveau vous connecter avec votre compte Microsoft pour vous reconnecter. 😐';
+
+    setOverlayContent('Se déconnecter', logoutMsg, 'Retour', 'Se déconnecter');
     toggleOverlay(true);
     
     setCloseHandler();

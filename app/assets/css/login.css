@@ -39,12 +39,12 @@
 }
 
 .login-content .login-body {
-    padding: 0 120px;
+    padding: 0 80px 30px;
 }
 
 .form-group {
     text-align: left;
-    margin-bottom: 20px;
+    margin-bottom: 15px;
 }
 
 .login-body p {
@@ -66,6 +66,45 @@
 .login-body button {
     padding: 18px 40px;
     font-size: 17px;
+    width: 100%;
+}
+
+.login-body .button-offline {
+    background: #4a4a4a;
+    border: none;
+    color: #fff;
+    cursor: pointer;
+    border-radius: 5px;
+    transition: background 0.2s;
+}
+
+.login-body .button-offline:hover {
+    background: #5a5a5a;
+}
+
+.login-body .button-offline:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.login-divider {
+    display: flex;
+    align-items: center;
+    text-align: center;
+    margin: 20px 0;
+    color: #636363;
+    font-size: 13px;
+}
+
+.login-divider::before,
+.login-divider::after {
+    content: '';
+    flex: 1;
+    border-bottom: 1px solid #404040;
+}
+
+.login-divider span {
+    padding: 0 15px;
 }
 
 .login-body .circle-loader {
