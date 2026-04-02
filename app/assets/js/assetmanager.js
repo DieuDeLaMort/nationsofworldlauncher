@@ -685,37 +685,69 @@ class AssetManager extends EventEmitter {
         const self = this;
         return new Promise((resolve, reject) => {
             const targetPath = path.join(ConfigManager.getWorkingDirectory(), 'runtime', 'x64');
-            const targetFile = 'runtime.tar.gz';
+            const isZip = javaData.url.toLowerCase().endsWith('.zip');
+            const targetFile = isZip ? 'runtime.zip' : 'runtime.tar.gz';
+            const dlSize = javaData.size != null ? javaData.size : 0;
+            const dlHash = javaData.MD5 != null ? javaData.MD5 : null;
 
-            let jre = new Asset('java', javaData.MD5, javaData.size, javaData.url, path.join(targetPath, targetFile));
+            let jre = new Asset('java', dlHash, dlSize, javaData.url, path.join(targetPath, targetFile));
 
-            this.java = new DLTracker([jre], jre.size, (a, self) => {
-                let h = null
-                fs.createReadStream(a.to)
-                    .on('error', err => console.log(err))
-                    .pipe(zlib.createGunzip())
-                    .on('error', err => console.log(err))
-                    .pipe(tar.extract(targetPath, {
-                        map: (header) => {
-                            if(h == null) {
-                                h = header.name;
-                            }
+            this.java = new DLTracker([jre], dlSize, (a, self) => {
+                if(isZip) {
+                    try {
+                        const zip = new AdmZip(a.to);
+                        const entries = zip.getEntries();
+                        let h = null;
+                        if(entries.length > 0) {
+                            h = entries[0].entryName;
                         }
-                    }))
-                    .on('error', err => console.log(err))
-                    .on('finish', () => {
+                        zip.extractAllTo(targetPath, true);
                         fs.unlink(a.to, err => {
                             if(err) {
                                 console.log(err);
                             }
-                            if(h.indexOf('/') > -1) {
+                            if(h != null && h.indexOf('/') > -1) {
                                 h = h.substring(0, h.indexOf('/'));
                             }
-
+                            else if(h != null && h.indexOf('\\') > -1) {
+                                h = h.substring(0, h.indexOf('\\'));
+                            }
                             const pos = path.join(targetPath, h);
                             self.emit('complete', 'java', JavaManager.javaExecFromRoot(pos));
                         });
-                    });
+                    }
+                    catch(err) {
+                        console.log(err);
+                    }
+                }
+                else {
+                    let h = null
+                    fs.createReadStream(a.to)
+                        .on('error', err => console.log(err))
+                        .pipe(zlib.createGunzip())
+                        .on('error', err => console.log(err))
+                        .pipe(tar.extract(targetPath, {
+                            map: (header) => {
+                                if(h == null) {
+                                    h = header.name;
+                                }
+                            }
+                        }))
+                        .on('error', err => console.log(err))
+                        .on('finish', () => {
+                            fs.unlink(a.to, err => {
+                                if(err) {
+                                    console.log(err);
+                                }
+                                if(h.indexOf('/') > -1) {
+                                    h = h.substring(0, h.indexOf('/'));
+                                }
+
+                                const pos = path.join(targetPath, h);
+                                self.emit('complete', 'java', JavaManager.javaExecFromRoot(pos));
+                            });
+                        });
+                }
             });
             resolve();
         });

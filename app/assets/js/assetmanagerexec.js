@@ -21,7 +21,8 @@ tracker.on('validate', (data) => {
     process.send({context: 'validate', data});
 });
 tracker.on('progress', (data, acc, total) => {
-    process.send({context: 'progress', data, value: acc, total, percent: parseInt((acc/total)*100)});
+    let percent = (total > 0) ? parseInt((acc/total)*100) : 0;
+    process.send({context: 'progress', data, value: acc, total, percent});
 });
 tracker.on('complete', (data, ...args) => {
     process.send({context: 'complete', data, args});
