@@ -1,9 +1,6 @@
 /**
- * Paladium Launcher - https://github.com/Chaika9/paladiumlauncher
- * Copyright (C) 2019 Paladium
+ * Nations of World Launcher
  */
-
-const crypto = require('crypto');
 
 const ConfigManager = require('./configmanager');
 const Microsoft = require('./microsoft');
@@ -34,24 +31,6 @@ exports.addAccount = async function() {
     }
 }
 
-exports.addOfflineAccount = function(username) {
-    // Generate an offline UUID consistent with Minecraft's offline mode.
-    // Minecraft itself uses the same "OfflinePlayer:<name>" MD5 approach for offline UUIDs.
-    // This is NOT used for security — it's purely for game compatibility.
-    const offlineUUID = crypto.createHash('md5').update('OfflinePlayer:' + username).digest('hex'); // eslint-disable-line no-sync
-
-    const ret = ConfigManager.addAuthAccount(
-        offlineUUID,
-        'offline',
-        username,
-        username,
-        null,
-        'offline'
-    );
-    ConfigManager.save();
-    return ret;
-}
-
 exports.removeAccount = async function(uuid) {
     try {
         ConfigManager.removeAuthAccount(uuid);
@@ -65,12 +44,6 @@ exports.removeAccount = async function(uuid) {
 
 exports.validateSelected = async function() {
     const current = ConfigManager.getSelectedAccount();
-
-    // Offline accounts are always valid
-    if(current.type === 'offline') {
-        logger.log('Offline account - skipping token validation.');
-        return true;
-    }
 
     const isValid = await Microsoft.validate(current.accessToken);
     if(!isValid) {

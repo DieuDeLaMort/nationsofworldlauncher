@@ -1,6 +1,5 @@
 /**
- * Paladium Launcher - https://github.com/Chaika9/paladiumlauncher
- * Copyright (C) 2019 Paladium
+ * Nations of World Launcher
  */
 
 const $launcherHomePlayButton = $('#launcher-home-play-button');
@@ -27,13 +26,13 @@ document.addEventListener('keydown', (e) => {
 });
 
 function refreshServer() {
-    var paladium_server = require('./assets/js/minecraftserver');
-    paladium_server.init('play.paladium-pvp.fr', 25565, function(result) {
-        if(paladium_server.online) {
-            $("#server-paladium-players").html(paladium_server.current_players);
-            $("#server-paladium-latency").html(paladium_server.latency);
+    var now_server = require('./assets/js/minecraftserver');
+    now_server.init('play.paladium-pvp.fr', 25565, function(result) {
+        if(now_server.online) {
+            $("#server-now-players").html(now_server.current_players);
+            $("#server-now-latency").html(now_server.latency);
 
-            $("#server-total-players").html(paladium_server.current_players + " <i class=\"online\"></i>");
+            $("#server-total-players").html(now_server.current_players + " <i class=\"online\"></i>");
         }
         else {
             $("#server-total-players").html("0 <i class=\"offline\"></i>");
