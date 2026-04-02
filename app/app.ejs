@@ -22,14 +22,14 @@
     </head>
     <body>
         <div id="main">
-            <% include login.ejs %>
-            <% include promotion.ejs %>
-            <% include launcher.ejs %>
-            <% include settings.ejs %>
+            <%- include('login.ejs') %>
+            <%- include('promotion.ejs') %>
+            <%- include('launcher.ejs') %>
+            <%- include('settings.ejs') %>
         </div>
         
-        <% include overlay.ejs %>
-        <% include frame.ejs %>
+        <%- include('overlay.ejs') %>
+        <%- include('frame.ejs') %>
         
         <div id="loading-view" style="display: none;">
             <div class="loading-container">
