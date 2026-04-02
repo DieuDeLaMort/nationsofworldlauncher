@@ -13,7 +13,7 @@ function initSettingsUserCompteTab() {
 $("#settings-user-logout-button").click(function() {
     setOverlayContent('Se déconnecter',
         'Êtes-vous sûr de vouloir vous déconnecter ?'
-        + '<br><br>Il faudra de nouveau rentrer vos indentifiant (email + mot de passe) pour vous reconnecter. 😐', 
+        + '<br><br>Il faudra de nouveau vous connecter avec votre compte Microsoft pour vous reconnecter. 😐', 
         'Retour', 'Se déconnecter');
     toggleOverlay(true);
     

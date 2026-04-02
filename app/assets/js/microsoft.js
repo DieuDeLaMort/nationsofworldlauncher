@@ -1,0 +1,451 @@
+/**
+ * Nations of World Launcher - Microsoft Authentication Module
+ * Implements the Microsoft OAuth2 → Xbox Live → XSTS → Minecraft authentication chain.
+ */
+
+const request = require('request');
+const { BrowserWindow } = require('electron').remote;
+
+const logger = require('./loggerutil')('%c[Microsoft]', 'color: #a02d2a; font-weight: bold');
+
+// Azure AD Application (Client) ID
+// Register your app at https://portal.azure.com/#blade/Microsoft_AAD_RegisteredApps
+// Required: Redirect URI = https://login.microsoftonline.com/common/oauth2/nativeclient
+// Required scopes: XboxLive.signin offline_access
+const CLIENT_ID = 'd7c14e41-5a81-48a4-b079-f0fed1508713';
+const REDIRECT_URI = 'https://login.microsoftonline.com/common/oauth2/nativeclient';
+
+const MICROSOFT_AUTH_URL = 'https://login.microsoftonline.com/consumers/oauth2/v2.0/authorize';
+const MICROSOFT_TOKEN_URL = 'https://login.microsoftonline.com/consumers/oauth2/v2.0/token';
+const XBOX_LIVE_AUTH_URL = 'https://user.auth.xboxlive.com/user/authenticate';
+const XSTS_AUTH_URL = 'https://xsts.auth.xboxlive.com/xsts/authorize';
+const MINECRAFT_AUTH_URL = 'https://api.minecraftservices.com/authentication/login_with_xbox';
+const MINECRAFT_PROFILE_URL = 'https://api.minecraftservices.com/minecraft/profile';
+const MINECRAFT_STORE_URL = 'https://api.minecraftservices.com/entitlements/mcstore';
+
+const statuses = [
+    {
+        service: 'login.microsoftonline.com',
+        status: 'grey',
+        name: 'Microsoft Authentication',
+        essential: true
+    },
+    {
+        service: 'user.auth.xboxlive.com',
+        status: 'grey',
+        name: 'Xbox Live Authentication',
+        essential: true
+    },
+    {
+        service: 'api.minecraftservices.com',
+        status: 'grey',
+        name: 'Minecraft Services',
+        essential: true
+    },
+    {
+        service: 'sessionserver.mojang.com',
+        status: 'grey',
+        name: 'Multiplayer Session Service',
+        essential: true
+    },
+    {
+        service: 'textures.minecraft.net',
+        status: 'grey',
+        name: 'Minecraft Skins',
+        essential: false
+    }
+];
+
+exports.statusToHex = function(status) {
+    switch(status.toLowerCase()) {
+        case 'green':
+            return '#a5c325';
+        case 'yellow':
+            return '#eac918';
+        case 'red':
+            return '#c32625';
+        case 'grey':
+        default:
+            return '#848484';
+    }
+}
+
+exports.status = function() {
+    return new Promise((resolve) => {
+        resolve(statuses);
+    });
+}
+
+/**
+ * Step 1: Open a BrowserWindow to the Microsoft OAuth2 login page
+ * and capture the authorization code from the redirect.
+ */
+exports.getAuthCode = function() {
+    return new Promise((resolve, reject) => {
+        const authUrl = MICROSOFT_AUTH_URL
+            + '?client_id=' + encodeURIComponent(CLIENT_ID)
+            + '&response_type=code'
+            + '&redirect_uri=' + encodeURIComponent(REDIRECT_URI)
+            + '&scope=' + encodeURIComponent('XboxLive.signin offline_access')
+            + '&prompt=select_account';
+
+        const authWindow = new BrowserWindow({
+            width: 520,
+            height: 600,
+            show: true,
+            frame: true,
+            webPreferences: {
+                nodeIntegration: false,
+                contextIsolation: true
+            }
+        });
+
+        authWindow.loadURL(authUrl);
+        authWindow.setMenu(null);
+
+        let resolved = false;
+
+        function handleNavigation(url) {
+            if(resolved) return;
+            if(url.indexOf(REDIRECT_URI) === 0) {
+                resolved = true;
+
+                let code = null;
+                let error = null;
+
+                // Parse query parameters from the URL
+                const queryString = url.split('?')[1];
+                if(queryString) {
+                    const params = queryString.split('&');
+                    for(let i = 0; i < params.length; i++) {
+                        const pair = params[i].split('=');
+                        if(pair[0] === 'code') {
+                            code = decodeURIComponent(pair[1]);
+                        } else if(pair[0] === 'error') {
+                            error = decodeURIComponent(pair[1]);
+                        }
+                    }
+                }
+
+                authWindow.removeAllListeners('closed');
+                authWindow.close();
+
+                if(error) {
+                    reject(new Error(error));
+                } else if(code) {
+                    resolve(code);
+                } else {
+                    reject(new Error('NO_AUTH_CODE'));
+                }
+            }
+        }
+
+        authWindow.webContents.on('will-redirect', (event, url) => {
+            handleNavigation(url);
+        });
+
+        authWindow.webContents.on('will-navigate', (event, url) => {
+            handleNavigation(url);
+        });
+
+        authWindow.on('closed', () => {
+            if(!resolved) {
+                reject(new Error('AUTH_WINDOW_CLOSED'));
+            }
+        });
+    });
+}
+
+/**
+ * Step 2: Exchange the authorization code for Microsoft access & refresh tokens.
+ */
+exports.getMicrosoftToken = function(authCode) {
+    return new Promise((resolve, reject) => {
+        request.post(MICROSOFT_TOKEN_URL, {
+            form: {
+                client_id: CLIENT_ID,
+                code: authCode,
+                grant_type: 'authorization_code',
+                redirect_uri: REDIRECT_URI,
+                scope: 'XboxLive.signin offline_access'
+            },
+            json: true,
+            timeout: 10000
+        }, function(error, response, body) {
+            if(error) {
+                logger.error('Error during Microsoft token exchange.', error);
+                reject(error);
+            } else {
+                if(response.statusCode === 200) {
+                    resolve(body);
+                } else {
+                    reject(body || { error: 'MICROSOFT_TOKEN_ERROR' });
+                }
+            }
+        });
+    });
+}
+
+/**
+ * Step 2b: Refresh the Microsoft access token using a refresh token.
+ */
+exports.refreshMicrosoftToken = function(refreshToken) {
+    return new Promise((resolve, reject) => {
+        request.post(MICROSOFT_TOKEN_URL, {
+            form: {
+                client_id: CLIENT_ID,
+                refresh_token: refreshToken,
+                grant_type: 'refresh_token',
+                scope: 'XboxLive.signin offline_access'
+            },
+            json: true,
+            timeout: 10000
+        }, function(error, response, body) {
+            if(error) {
+                logger.error('Error during Microsoft token refresh.', error);
+                reject(error);
+            } else {
+                if(response.statusCode === 200) {
+                    resolve(body);
+                } else {
+                    reject(body || { error: 'MICROSOFT_REFRESH_ERROR' });
+                }
+            }
+        });
+    });
+}
+
+/**
+ * Step 3: Authenticate with Xbox Live using the Microsoft access token.
+ */
+exports.getXboxLiveToken = function(msAccessToken) {
+    return new Promise((resolve, reject) => {
+        request.post(XBOX_LIVE_AUTH_URL, {
+            json: true,
+            body: {
+                Properties: {
+                    AuthMethod: 'RPS',
+                    SiteName: 'user.auth.xboxlive.com',
+                    RpsTicket: 'd=' + msAccessToken
+                },
+                RelyingParty: 'http://auth.xboxlive.com',
+                TokenType: 'JWT'
+            },
+            timeout: 10000
+        }, function(error, response, body) {
+            if(error) {
+                logger.error('Error during Xbox Live authentication.', error);
+                reject(error);
+            } else {
+                if(response.statusCode === 200) {
+                    resolve(body);
+                } else {
+                    reject(body || { error: 'XBOX_LIVE_AUTH_ERROR' });
+                }
+            }
+        });
+    });
+}
+
+/**
+ * Step 4: Get an XSTS token using the Xbox Live token.
+ */
+exports.getXSTSToken = function(xblToken) {
+    return new Promise((resolve, reject) => {
+        request.post(XSTS_AUTH_URL, {
+            json: true,
+            body: {
+                Properties: {
+                    SandboxId: 'RETAIL',
+                    UserTokens: [xblToken]
+                },
+                RelyingParty: 'rp://api.minecraftservices.com/',
+                TokenType: 'JWT'
+            },
+            timeout: 10000
+        }, function(error, response, body) {
+            if(error) {
+                logger.error('Error during XSTS authentication.', error);
+                reject(error);
+            } else {
+                if(response.statusCode === 200) {
+                    resolve(body);
+                } else {
+                    reject(body || { error: 'XSTS_AUTH_ERROR', XErr: null, statusCode: response.statusCode });
+                }
+            }
+        });
+    });
+}
+
+/**
+ * Step 5: Authenticate with Minecraft using the XSTS token.
+ */
+exports.getMinecraftToken = function(xstsToken, userHash) {
+    return new Promise((resolve, reject) => {
+        request.post(MINECRAFT_AUTH_URL, {
+            json: true,
+            body: {
+                identityToken: 'XBL3.0 x=' + userHash + ';' + xstsToken
+            },
+            timeout: 10000
+        }, function(error, response, body) {
+            if(error) {
+                logger.error('Error during Minecraft authentication.', error);
+                reject(error);
+            } else {
+                if(response.statusCode === 200) {
+                    resolve(body);
+                } else {
+                    reject(body || { error: 'MINECRAFT_AUTH_ERROR' });
+                }
+            }
+        });
+    });
+}
+
+/**
+ * Step 6: Check if the Microsoft account owns Minecraft.
+ */
+exports.checkMinecraftOwnership = function(mcAccessToken) {
+    return new Promise((resolve, reject) => {
+        request.get(MINECRAFT_STORE_URL, {
+            json: true,
+            headers: {
+                Authorization: 'Bearer ' + mcAccessToken
+            },
+            timeout: 10000
+        }, function(error, response, body) {
+            if(error) {
+                logger.error('Error during Minecraft ownership check.', error);
+                reject(error);
+            } else {
+                if(response.statusCode === 200) {
+                    const hasMinecraft = body.items && body.items.length > 0;
+                    resolve(hasMinecraft);
+                } else {
+                    reject(body || { error: 'OWNERSHIP_CHECK_ERROR' });
+                }
+            }
+        });
+    });
+}
+
+/**
+ * Step 7: Get the Minecraft profile (UUID and username).
+ */
+exports.getMinecraftProfile = function(mcAccessToken) {
+    return new Promise((resolve, reject) => {
+        request.get(MINECRAFT_PROFILE_URL, {
+            json: true,
+            headers: {
+                Authorization: 'Bearer ' + mcAccessToken
+            },
+            timeout: 10000
+        }, function(error, response, body) {
+            if(error) {
+                logger.error('Error during Minecraft profile retrieval.', error);
+                reject(error);
+            } else {
+                if(response.statusCode === 200) {
+                    resolve(body);
+                } else {
+                    reject(body || { error: 'MINECRAFT_PROFILE_ERROR' });
+                }
+            }
+        });
+    });
+}
+
+/**
+ * Complete the auth chain from Microsoft tokens to Minecraft profile.
+ * Used for both initial login and token refresh.
+ */
+exports.authenticateWithTokens = async function(msAccessToken, msRefreshToken) {
+    // Step 3: Xbox Live authentication
+    const xblResponse = await exports.getXboxLiveToken(msAccessToken);
+    const xblToken = xblResponse.Token;
+    const userHash = xblResponse.DisplayClaims.xui[0].uhs;
+    logger.log('Xbox Live authentication successful.');
+
+    // Step 4: XSTS authentication
+    const xstsResponse = await exports.getXSTSToken(xblToken);
+    const xstsToken = xstsResponse.Token;
+    logger.log('XSTS authentication successful.');
+
+    // Step 5: Minecraft authentication
+    const mcResponse = await exports.getMinecraftToken(xstsToken, userHash);
+    const mcAccessToken = mcResponse.access_token;
+    logger.log('Minecraft authentication successful.');
+
+    // Step 6: Check ownership
+    const ownsMinecraft = await exports.checkMinecraftOwnership(mcAccessToken);
+    if(!ownsMinecraft) {
+        throw new Error('NotPaidAccount');
+    }
+    logger.log('Minecraft ownership verified.');
+
+    // Step 7: Get profile
+    const profile = await exports.getMinecraftProfile(mcAccessToken);
+    logger.log('Minecraft profile retrieved:', profile.name);
+
+    return {
+        accessToken: mcAccessToken,
+        msRefreshToken: msRefreshToken,
+        selectedProfile: {
+            id: profile.id,
+            name: profile.name
+        }
+    };
+}
+
+/**
+ * Full authentication flow: opens Microsoft login window and completes the chain.
+ */
+exports.authenticate = async function() {
+    logger.log('Starting Microsoft authentication flow...');
+
+    // Step 1: Get authorization code via browser window
+    const authCode = await exports.getAuthCode();
+    logger.log('Authorization code obtained.');
+
+    // Step 2: Exchange for Microsoft tokens
+    const msTokens = await exports.getMicrosoftToken(authCode);
+    logger.log('Microsoft tokens obtained.');
+
+    return await exports.authenticateWithTokens(msTokens.access_token, msTokens.refresh_token);
+}
+
+/**
+ * Refresh flow: uses stored Microsoft refresh token to get new tokens.
+ */
+exports.refresh = async function(msRefreshToken) {
+    logger.log('Refreshing Microsoft authentication...');
+
+    const msTokens = await exports.refreshMicrosoftToken(msRefreshToken);
+    logger.log('Microsoft token refreshed.');
+
+    return await exports.authenticateWithTokens(msTokens.access_token, msTokens.refresh_token);
+}
+
+/**
+ * Validate a Minecraft access token by checking the profile endpoint.
+ */
+exports.validate = function(mcAccessToken) {
+    return new Promise((resolve, reject) => {
+        request.get(MINECRAFT_PROFILE_URL, {
+            json: true,
+            headers: {
+                Authorization: 'Bearer ' + mcAccessToken
+            },
+            timeout: 5000
+        }, function(error, response) {
+            if(error) {
+                logger.error('Error during validation.', error);
+                reject(error);
+            } else {
+                resolve(response.statusCode === 200);
+            }
+        });
+    });
+}
