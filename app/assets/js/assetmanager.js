@@ -20,13 +20,17 @@ const DistroManager = require('./distromanager');
 /**
  * Follow HTTP redirects and return the final response stream.
  */
-function httpGetStream(url) {
+function httpGetStream(url, maxRedirects = 5) {
     return new Promise((resolve, reject) => {
-        const mod = url.startsWith('https') ? https : http;
+        if(maxRedirects < 0) {
+            reject(new Error('Too many redirects'));
+            return;
+        }
+        const mod = new URL(url).protocol === 'https:' ? https : http;
         const req = mod.get(url, (resp) => {
             if(resp.statusCode >= 300 && resp.statusCode < 400 && resp.headers.location) {
                 resp.resume();
-                httpGetStream(resp.headers.location).then(resolve).catch(reject);
+                httpGetStream(resp.headers.location, maxRedirects - 1).then(resolve).catch(reject);
                 return;
             }
             resolve(resp);
