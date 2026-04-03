@@ -11,6 +11,7 @@ const fs = require('fs-extra');
 const https = require('https');
 const http = require('http');
 const path = require('path');
+const { Readable } = require('stream');
 const tar = require('tar-fs');
 const zlib = require('zlib');
 
@@ -539,21 +540,38 @@ class AssetManager extends EventEmitter {
 
                 const url = typeof asset.from === 'object' ? asset.from.url : asset.from;
 
-                httpGetStream(url).then(resp => {
-                    if(resp.statusCode === 200) {
+                fetch(url, { redirect: 'follow' }).then(resp => {
+                    if(resp.ok) {
                         let doHashCheck = false;
-                        const contentLength = parseInt(resp.headers['content-length']);
-                        
-                        if(contentLength !== asset.size) {
-                            console.log(`WARN: Got ${contentLength} bytes for ${asset.id}: Expected ${asset.size}`);
-                            doHashCheck = true;
+                        const contentLengthHeader = resp.headers.get('content-length');
+                        const contentLength = contentLengthHeader != null ? parseInt(contentLengthHeader) : NaN;
 
-                            // Adjust download
+                        if(!isNaN(contentLength) && contentLength > 0 && contentLength !== asset.size) {
+                            if(asset.size > 0) {
+                                // Only warn when we had a known expected size that doesn't match
+                                console.log(`WARN: Got ${contentLength} bytes for ${asset.id}: Expected ${asset.size}`);
+                                doHashCheck = true;
+                            }
+                            // Adjust download total in either case (handles unknown/zero size too)
                             this.totaldlsize -= asset.size;
                             this.totaldlsize += contentLength;
                         }
 
+                        if(!resp.body) {
+                            console.log(`Failed to download ${asset.id}(${url}). Response body is null.`);
+                            self.progress += asset.size*1;
+                            self.emit('progress', 'download', self.progress, self.totaldlsize);
+                            cb();
+                            return;
+                        }
+
+                        const nodeReadable = Readable.fromWeb(resp.body);
                         let writeStream = fs.createWriteStream(asset.to);
+
+                        nodeReadable.on('error', (err) => {
+                            writeStream.destroy(err);
+                        });
+
                         writeStream.on('close', () => {
                             if(dlTracker.callback != null) {
                                 dlTracker.callback.apply(dlTracker, [asset, self]);
@@ -571,16 +589,15 @@ class AssetManager extends EventEmitter {
                             cb()
                         });
 
-                        resp.on('data', (chunk) => {
+                        nodeReadable.on('data', (chunk) => {
                             self.progress += chunk.length;
                             self.emit('progress', 'download', self.progress, self.totaldlsize);
                         });
 
-                        resp.pipe(writeStream);
+                        nodeReadable.pipe(writeStream);
                     } 
                     else {
-                        resp.resume();
-                        console.log(`Failed to download ${asset.id}(${url}). Response code ${resp.statusCode}`);
+                        console.log(`Failed to download ${asset.id}(${url}). Response code ${resp.status}`);
                         self.progress += asset.size*1;
                         self.emit('progress', 'download', self.progress, self.totaldlsize);
                         cb();
