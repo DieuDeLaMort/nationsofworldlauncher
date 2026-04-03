@@ -5,7 +5,6 @@
 const $ = require('jquery');
 const {ipcRenderer, shell, webFrame} = require('electron');
 const remote = require('@electron/remote');
-const request = require('request');
 const cp = require('child_process');
 const path = require('path');
 

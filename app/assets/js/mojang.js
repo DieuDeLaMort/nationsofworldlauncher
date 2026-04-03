@@ -3,7 +3,6 @@
  *
  */
 
-const request = require('request');
 const logger  = require('./loggerutil')('%c[Mojang]', 'color: #a02d2a; font-weight: bold');
 
 const minecraftAgent = {
@@ -67,39 +66,41 @@ exports.statusToHex = function(status) {
 
 exports.status = function() {
     return new Promise((resolve, reject) => {
-        request.get('https://status.mojang.com/check', {
-            json: true,
-            timeout: 2500
-        },
-        function(error, response, body) {
-            if(error || response.statusCode !== 200) {
-                logger.warn('Unable to retrieve Mojang status.');
-                logger.debug('Error while retrieving Mojang statuses:', error);
-                for(let i=0; i<statuses.length; i++) {
-                    statuses[i].status = 'grey';
-                }
-                resolve(statuses);
-            } 
-            else {
-                for(let i=0; i<body.length; i++) {
-                    const key = Object.keys(body[i])[0]
-                    inner:;
-                    for(let j=0; j<statuses.length; j++) {
-                        if(statuses[j].service === key) {
-                            statuses[j].status = body[i][key];
-                            break inner;
-                        }
+        fetch('https://status.mojang.com/check', {
+            signal: AbortSignal.timeout(2500)
+        })
+        .then(response => {
+            if(!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(body => {
+            for(let i=0; i<body.length; i++) {
+                const key = Object.keys(body[i])[0]
+                for(let j=0; j<statuses.length; j++) {
+                    if(statuses[j].service === key) {
+                        statuses[j].status = body[i][key];
+                        break;
                     }
                 }
-                resolve(statuses);
             }
+            resolve(statuses);
+        })
+        .catch(error => {
+            logger.warn('Unable to retrieve Mojang status.');
+            logger.debug('Error while retrieving Mojang statuses:', error);
+            for(let i=0; i<statuses.length; i++) {
+                statuses[i].status = 'grey';
+            }
+            resolve(statuses);
         });
     });
 }
 
 exports.authenticate = function(username, password, clientToken, requestUser = true, agent = minecraftAgent) {
     return new Promise((resolve, reject) => {
-        const body = {
+        const bodyData = {
             agent,
             username,
             password,
@@ -107,106 +108,104 @@ exports.authenticate = function(username, password, clientToken, requestUser = t
         }
 
         if(clientToken != null) {
-            body.clientToken = clientToken;
+            bodyData.clientToken = clientToken;
         }
 
-        request.post(authpath + '/authenticate', {
-            json: true,
-            body
-        },
-        function(error, response, body) {
-            if(error) {
-                logger.error('Error during authentication.', error);
-                reject(error);
-            } 
-            else {
-                if(response.statusCode === 200) {
-                    resolve(body);
-                } 
-                else {
-                    reject(body || {code: 'ENOTFOUND'});
-                }
+        fetch(authpath + '/authenticate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(bodyData),
+            signal: AbortSignal.timeout(10000)
+        })
+        .then(async response => {
+            const body = await response.json().catch(() => null);
+            if(response.ok) {
+                resolve(body);
+            } else {
+                reject(body || {code: 'ENOTFOUND'});
             }
+        })
+        .catch(error => {
+            logger.error('Error during authentication.', error);
+            reject(error);
         });
     });
 }
 
 exports.validate = function(accessToken, clientToken) {
     return new Promise((resolve, reject) => {
-        request.post(authpath + '/validate', {
-                json: true,
-                body: {
-                    accessToken,
-                    clientToken
-                }
-            },
-            function(error, response, body) {
-                if(error) {
-                    logger.error('Error during validation.', error);
-                    reject(error);
-                } 
-                else {
-                    if(response.statusCode === 403) {
-                        resolve(false);
-                    } 
-                    else {
-                    // 204 if valid
-                    resolve(true);
-                }
+        fetch(authpath + '/validate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                accessToken,
+                clientToken
+            }),
+            signal: AbortSignal.timeout(10000)
+        })
+        .then(response => {
+            if(response.status === 403) {
+                resolve(false);
+            } else {
+                // 204 if valid
+                resolve(true);
             }
+        })
+        .catch(error => {
+            logger.error('Error during validation.', error);
+            reject(error);
         });
     });
 }
 
 exports.invalidate = function(accessToken, clientToken) {
     return new Promise((resolve, reject) => {
-        request.post(authpath + '/invalidate', {
-            json: true,
-            body: {
+        fetch(authpath + '/invalidate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
                 accessToken,
                 clientToken
+            }),
+            signal: AbortSignal.timeout(10000)
+        })
+        .then(response => {
+            if(response.status === 204) {
+                resolve();
+            } else {
+                return response.json().then(body => reject(body));
             }
-        },
-        function(error, response, body) {
-            if(error) {
-                logger.error('Error during invalidation.', error);
-                reject(error);
-            } 
-            else {
-                if(response.statusCode === 204) {
-                    resolve();
-                } 
-                else {
-                    reject(body);
-                }
-            }
+        })
+        .catch(error => {
+            logger.error('Error during invalidation.', error);
+            reject(error);
         });
     });
 }
 
 exports.refresh = function(accessToken, clientToken, requestUser = true) {
     return new Promise((resolve, reject) => {
-        request.post(authpath + '/refresh', {
-            json: true,
-            body: {
+        fetch(authpath + '/refresh', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
                 accessToken,
                 clientToken,
                 requestUser
+            }),
+            signal: AbortSignal.timeout(10000)
+        })
+        .then(async response => {
+            const body = await response.json().catch(() => null);
+            if(response.ok) {
+                resolve(body);
+            } else {
+                reject(body);
             }
-        },
-        function(error, response, body) {
-            if(error) {
-                logger.error('Error during refresh.', error);
-                reject(error);
-            } 
-            else {
-                if(response.statusCode === 200) {
-                    resolve(body);
-                } 
-                else {
-                    reject(body);
-                }
-            }
+        })
+        .catch(error => {
+            logger.error('Error during refresh.', error);
+            reject(error);
         });
     });
 }

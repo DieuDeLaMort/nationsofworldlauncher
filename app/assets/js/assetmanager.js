@@ -8,13 +8,32 @@ const child_process = require('child_process');
 const crypto = require('crypto');
 const EventEmitter = require('events');
 const fs = require('fs-extra');
+const https = require('https');
+const http = require('http');
 const path = require('path');
-const request = require('request');
 const tar = require('tar-fs');
 const zlib = require('zlib');
 
 const ConfigManager = require('./configmanager');
 const DistroManager = require('./distromanager');
+
+/**
+ * Follow HTTP redirects and return the final response stream.
+ */
+function httpGetStream(url) {
+    return new Promise((resolve, reject) => {
+        const mod = url.startsWith('https') ? https : http;
+        const req = mod.get(url, (resp) => {
+            if(resp.statusCode >= 300 && resp.statusCode < 400 && resp.headers.location) {
+                resp.resume();
+                httpGetStream(resp.headers.location).then(resolve).catch(reject);
+                return;
+            }
+            resolve(resp);
+        });
+        req.on('error', reject);
+    });
+}
 
 class Asset {
     constructor(id, hash, size, from, to) {
@@ -292,10 +311,12 @@ class AssetManager extends EventEmitter {
                 //This download will never be tracked as it's essential and trivial.
                 console.log('Preparing download of ' + version + ' assets.');
                 fs.ensureDirSync(versionPath);
-                const stream = request(url).pipe(fs.createWriteStream(versionFile));
-                stream.on('finish', () => {
-                    resolve(JSON.parse(fs.readFileSync(versionFile)));
-                });
+                httpGetStream(url).then(resp => {
+                    const stream = resp.pipe(fs.createWriteStream(versionFile));
+                    stream.on('finish', () => {
+                        resolve(JSON.parse(fs.readFileSync(versionFile)));
+                    });
+                }).catch(reject);
             } 
             else {
                 resolve(JSON.parse(fs.readFileSync(versionFile)));
@@ -305,20 +326,21 @@ class AssetManager extends EventEmitter {
 
     _getVersionDataUrl(version) {
         return new Promise((resolve, reject) => {
-            request('https://launchermeta.mojang.com/mc/game/version_manifest.json', (error, resp, body) => {
-                if(error) {
-                    reject(error);
-                } 
-                else {
-                    const manifest = JSON.parse(body);
-                    for(let v of manifest.versions) {
-                        if(v.id === version) {
-                            resolve(v.url);
-                        }
+            fetch('https://launchermeta.mojang.com/mc/game/version_manifest.json')
+            .then(response => {
+                if(!response.ok) throw new Error(`HTTP ${response.status}`);
+                return response.json();
+            })
+            .then(manifest => {
+                for(let v of manifest.versions) {
+                    if(v.id === version) {
+                        resolve(v.url);
+                        return;
                     }
-                    resolve(null);
                 }
-            });
+                resolve(null);
+            })
+            .catch(reject);
         });
     }
 
@@ -344,13 +366,15 @@ class AssetManager extends EventEmitter {
             if(!fs.existsSync(assetIndexLoc) || force) {
                 console.log('Downloading ' + versionData.id + ' asset index.');
                 fs.ensureDirSync(indexPath);
-                const stream = request(assetIndex.url).pipe(fs.createWriteStream(assetIndexLoc));
-                stream.on('finish', () => {
-                    data = JSON.parse(fs.readFileSync(assetIndexLoc, 'utf-8'));
-                    self._assetChainValidateAssets(versionData, data).then(() => {
-                        resolve();
+                httpGetStream(assetIndex.url).then(resp => {
+                    const stream = resp.pipe(fs.createWriteStream(assetIndexLoc));
+                    stream.on('finish', () => {
+                        data = JSON.parse(fs.readFileSync(assetIndexLoc, 'utf-8'));
+                        self._assetChainValidateAssets(versionData, data).then(() => {
+                            resolve();
+                        });
                     });
-                });
+                }).catch(reject);
             } 
             else {
                 data = JSON.parse(fs.readFileSync(assetIndexLoc, 'utf-8'));
@@ -509,10 +533,9 @@ class AssetManager extends EventEmitter {
                 //console.log(`Download assets : ${asset.id}: ${asset.size}`);
                 fs.ensureDirSync(path.join(asset.to, '..'));
 
-                let req = request(asset.from);
-                req.pause();
+                const url = typeof asset.from === 'object' ? asset.from.url : asset.from;
 
-                req.on('response', (resp) => {
+                httpGetStream(url).then(resp => {
                     if(resp.statusCode === 200) {
                         let doHashCheck = false;
                         const contentLength = parseInt(resp.headers['content-length']);
@@ -543,26 +566,23 @@ class AssetManager extends EventEmitter {
                             }
                             cb()
                         });
-                        req.pipe(writeStream);
-                        req.resume();
 
+                        resp.on('data', (chunk) => {
+                            self.progress += chunk.length;
+                            self.emit('progress', 'download', self.progress, self.totaldlsize);
+                        });
+
+                        resp.pipe(writeStream);
                     } 
                     else {
-                        req.abort();
-                        console.log(`Failed to download ${asset.id}(${typeof asset.from === 'object' ? asset.from.url : asset.from}). Response code ${resp.statusCode}`);
+                        resp.resume();
+                        console.log(`Failed to download ${asset.id}(${url}). Response code ${resp.statusCode}`);
                         self.progress += asset.size*1;
                         self.emit('progress', 'download', self.progress, self.totaldlsize);
                         cb();
                     }
-                });
-
-                req.on('error', (err) => {
+                }).catch(err => {
                     self.emit('error', 'download', err);
-                });
-
-                req.on('data', (chunk) => {
-                    self.progress += chunk.length;
-                    self.emit('progress', 'download', self.progress, self.totaldlsize);
                 });
             }, (err) => {
                 if(err) {

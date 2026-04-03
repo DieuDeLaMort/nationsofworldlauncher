@@ -3,7 +3,6 @@
  * Implements the Microsoft OAuth2 → Xbox Live → XSTS → Minecraft authentication chain.
  */
 
-const request = require('request');
 const { BrowserWindow } = require('@electron/remote');
 
 const logger = require('./loggerutil')('%c[Microsoft]', 'color: #a02d2a; font-weight: bold');
@@ -168,26 +167,29 @@ exports.getAuthCode = function() {
  */
 exports.getMicrosoftToken = function(authCode) {
     return new Promise((resolve, reject) => {
-        request.post(MICROSOFT_TOKEN_URL, {
-            form: {
-                client_id: CLIENT_ID,
-                code: authCode,
-                grant_type: 'authorization_code',
-                redirect_uri: REDIRECT_URI
-            },
-            json: true,
-            timeout: 10000
-        }, function(error, response, body) {
-            if(error) {
-                logger.error('Error during Microsoft token exchange.', error);
-                reject(error);
+        const params = new URLSearchParams({
+            client_id: CLIENT_ID,
+            code: authCode,
+            grant_type: 'authorization_code',
+            redirect_uri: REDIRECT_URI
+        });
+        fetch(MICROSOFT_TOKEN_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: params.toString(),
+            signal: AbortSignal.timeout(10000)
+        })
+        .then(async response => {
+            const body = await response.json().catch(() => null);
+            if(response.ok) {
+                resolve(body);
             } else {
-                if(response.statusCode === 200) {
-                    resolve(body);
-                } else {
-                    reject(body || { error: 'MICROSOFT_TOKEN_ERROR' });
-                }
+                reject(body || { error: 'MICROSOFT_TOKEN_ERROR' });
             }
+        })
+        .catch(error => {
+            logger.error('Error during Microsoft token exchange.', error);
+            reject(error);
         });
     });
 }
@@ -197,25 +199,28 @@ exports.getMicrosoftToken = function(authCode) {
  */
 exports.refreshMicrosoftToken = function(refreshToken) {
     return new Promise((resolve, reject) => {
-        request.post(MICROSOFT_TOKEN_URL, {
-            form: {
-                client_id: CLIENT_ID,
-                refresh_token: refreshToken,
-                grant_type: 'refresh_token'
-            },
-            json: true,
-            timeout: 10000
-        }, function(error, response, body) {
-            if(error) {
-                logger.error('Error during Microsoft token refresh.', error);
-                reject(error);
+        const params = new URLSearchParams({
+            client_id: CLIENT_ID,
+            refresh_token: refreshToken,
+            grant_type: 'refresh_token'
+        });
+        fetch(MICROSOFT_TOKEN_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: params.toString(),
+            signal: AbortSignal.timeout(10000)
+        })
+        .then(async response => {
+            const body = await response.json().catch(() => null);
+            if(response.ok) {
+                resolve(body);
             } else {
-                if(response.statusCode === 200) {
-                    resolve(body);
-                } else {
-                    reject(body || { error: 'MICROSOFT_REFRESH_ERROR' });
-                }
+                reject(body || { error: 'MICROSOFT_REFRESH_ERROR' });
             }
+        })
+        .catch(error => {
+            logger.error('Error during Microsoft token refresh.', error);
+            reject(error);
         });
     });
 }
@@ -225,9 +230,10 @@ exports.refreshMicrosoftToken = function(refreshToken) {
  */
 exports.getXboxLiveToken = function(msAccessToken) {
     return new Promise((resolve, reject) => {
-        request.post(XBOX_LIVE_AUTH_URL, {
-            json: true,
-            body: {
+        fetch(XBOX_LIVE_AUTH_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
                 Properties: {
                     AuthMethod: 'RPS',
                     SiteName: 'user.auth.xboxlive.com',
@@ -235,19 +241,20 @@ exports.getXboxLiveToken = function(msAccessToken) {
                 },
                 RelyingParty: 'http://auth.xboxlive.com',
                 TokenType: 'JWT'
-            },
-            timeout: 10000
-        }, function(error, response, body) {
-            if(error) {
-                logger.error('Error during Xbox Live authentication.', error);
-                reject(error);
+            }),
+            signal: AbortSignal.timeout(10000)
+        })
+        .then(async response => {
+            const body = await response.json().catch(() => null);
+            if(response.ok) {
+                resolve(body);
             } else {
-                if(response.statusCode === 200) {
-                    resolve(body);
-                } else {
-                    reject(body || { error: 'XBOX_LIVE_AUTH_ERROR' });
-                }
+                reject(body || { error: 'XBOX_LIVE_AUTH_ERROR' });
             }
+        })
+        .catch(error => {
+            logger.error('Error during Xbox Live authentication.', error);
+            reject(error);
         });
     });
 }
@@ -257,28 +264,30 @@ exports.getXboxLiveToken = function(msAccessToken) {
  */
 exports.getXSTSToken = function(xblToken) {
     return new Promise((resolve, reject) => {
-        request.post(XSTS_AUTH_URL, {
-            json: true,
-            body: {
+        fetch(XSTS_AUTH_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
                 Properties: {
                     SandboxId: 'RETAIL',
                     UserTokens: [xblToken]
                 },
                 RelyingParty: 'rp://api.minecraftservices.com/',
                 TokenType: 'JWT'
-            },
-            timeout: 10000
-        }, function(error, response, body) {
-            if(error) {
-                logger.error('Error during XSTS authentication.', error);
-                reject(error);
+            }),
+            signal: AbortSignal.timeout(10000)
+        })
+        .then(async response => {
+            const body = await response.json().catch(() => null);
+            if(response.ok) {
+                resolve(body);
             } else {
-                if(response.statusCode === 200) {
-                    resolve(body);
-                } else {
-                    reject(body || { error: 'XSTS_AUTH_ERROR', XErr: null, statusCode: response.statusCode });
-                }
+                reject(body || { error: 'XSTS_AUTH_ERROR', XErr: null, statusCode: response.status });
             }
+        })
+        .catch(error => {
+            logger.error('Error during XSTS authentication.', error);
+            reject(error);
         });
     });
 }
@@ -288,23 +297,25 @@ exports.getXSTSToken = function(xblToken) {
  */
 exports.getMinecraftToken = function(xstsToken, userHash) {
     return new Promise((resolve, reject) => {
-        request.post(MINECRAFT_AUTH_URL, {
-            json: true,
-            body: {
+        fetch(MINECRAFT_AUTH_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
                 identityToken: 'XBL3.0 x=' + userHash + ';' + xstsToken
-            },
-            timeout: 10000
-        }, function(error, response, body) {
-            if(error) {
-                logger.error('Error during Minecraft authentication.', error);
-                reject(error);
+            }),
+            signal: AbortSignal.timeout(10000)
+        })
+        .then(async response => {
+            const body = await response.json().catch(() => null);
+            if(response.ok) {
+                resolve(body);
             } else {
-                if(response.statusCode === 200) {
-                    resolve(body);
-                } else {
-                    reject(body || { error: 'MINECRAFT_AUTH_ERROR' });
-                }
+                reject(body || { error: 'MINECRAFT_AUTH_ERROR' });
             }
+        })
+        .catch(error => {
+            logger.error('Error during Minecraft authentication.', error);
+            reject(error);
         });
     });
 }
@@ -314,24 +325,24 @@ exports.getMinecraftToken = function(xstsToken, userHash) {
  */
 exports.checkMinecraftOwnership = function(mcAccessToken) {
     return new Promise((resolve, reject) => {
-        request.get(MINECRAFT_STORE_URL, {
-            json: true,
+        fetch(MINECRAFT_STORE_URL, {
             headers: {
                 Authorization: 'Bearer ' + mcAccessToken
             },
-            timeout: 10000
-        }, function(error, response, body) {
-            if(error) {
-                logger.error('Error during Minecraft ownership check.', error);
-                reject(error);
+            signal: AbortSignal.timeout(10000)
+        })
+        .then(async response => {
+            const body = await response.json().catch(() => null);
+            if(response.ok) {
+                const hasMinecraft = body && body.items && body.items.length > 0;
+                resolve(hasMinecraft);
             } else {
-                if(response.statusCode === 200) {
-                    const hasMinecraft = body.items && body.items.length > 0;
-                    resolve(hasMinecraft);
-                } else {
-                    reject(body || { error: 'OWNERSHIP_CHECK_ERROR' });
-                }
+                reject(body || { error: 'OWNERSHIP_CHECK_ERROR' });
             }
+        })
+        .catch(error => {
+            logger.error('Error during Minecraft ownership check.', error);
+            reject(error);
         });
     });
 }
@@ -341,23 +352,23 @@ exports.checkMinecraftOwnership = function(mcAccessToken) {
  */
 exports.getMinecraftProfile = function(mcAccessToken) {
     return new Promise((resolve, reject) => {
-        request.get(MINECRAFT_PROFILE_URL, {
-            json: true,
+        fetch(MINECRAFT_PROFILE_URL, {
             headers: {
                 Authorization: 'Bearer ' + mcAccessToken
             },
-            timeout: 10000
-        }, function(error, response, body) {
-            if(error) {
-                logger.error('Error during Minecraft profile retrieval.', error);
-                reject(error);
+            signal: AbortSignal.timeout(10000)
+        })
+        .then(async response => {
+            const body = await response.json().catch(() => null);
+            if(response.ok) {
+                resolve(body);
             } else {
-                if(response.statusCode === 200) {
-                    resolve(body);
-                } else {
-                    reject(body || { error: 'MINECRAFT_PROFILE_ERROR' });
-                }
+                reject(body || { error: 'MINECRAFT_PROFILE_ERROR' });
             }
+        })
+        .catch(error => {
+            logger.error('Error during Minecraft profile retrieval.', error);
+            reject(error);
         });
     });
 }
@@ -438,19 +449,18 @@ exports.refresh = async function(msRefreshToken) {
  */
 exports.validate = function(mcAccessToken) {
     return new Promise((resolve, reject) => {
-        request.get(MINECRAFT_PROFILE_URL, {
-            json: true,
+        fetch(MINECRAFT_PROFILE_URL, {
             headers: {
                 Authorization: 'Bearer ' + mcAccessToken
             },
-            timeout: 5000
-        }, function(error, response) {
-            if(error) {
-                logger.error('Error during validation.', error);
-                reject(error);
-            } else {
-                resolve(response.statusCode === 200);
-            }
+            signal: AbortSignal.timeout(5000)
+        })
+        .then(response => {
+            resolve(response.ok);
+        })
+        .catch(error => {
+            logger.error('Error during validation.', error);
+            reject(error);
         });
     });
 }
