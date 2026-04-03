@@ -3,7 +3,6 @@
  */
 
 const path = require('path');
-const request = require('request');
 
 const ConfigManager = require('./configmanager');
 
@@ -321,26 +320,13 @@ exports.Types = {
 let data = null;
 
 exports.pullRemote = async function(distroURL) {
-    return new Promise((resolve, reject) => {
-        let opts = {
-            url: distroURL,
-            timeout: 10000
-        }
-        request(opts, (error, resp, body) => {
-            if(!error) {
-                try {
-                    data = DistroIndex.fromJSON(JSON.parse(body));
-                    resolve(data);
-                } 
-                catch (e) {
-                    reject(e);
-                }
-            }
-            else {
-                reject(error);
-            }
-        });
-    });
+    const response = await fetch(distroURL, { signal: AbortSignal.timeout(10000) });
+    if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+    const body = await response.json();
+    data = DistroIndex.fromJSON(body);
+    return data;
 }
 
 exports.getDistribution = function() {
