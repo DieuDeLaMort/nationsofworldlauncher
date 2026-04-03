@@ -18,7 +18,13 @@ const path = require('path');
 const fs = require('fs');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.SERVER_PORT || process.env.PORT || 3000;
+
+// CORS headers so the launcher can fetch cross-origin
+app.use((req, res, next) => {
+    res.header("Access-Control-Allow-Origin", "*");
+    next();
+});
 
 // Rate limiting to prevent abuse
 const limiter = rateLimit({
@@ -54,7 +60,7 @@ app.get('/health', (req, res) => {
     res.json({ status: 'ok', name: 'Nations of World Modpack Server' });
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
     console.log(`Nations of World Modpack Server running on port ${PORT}`);
     console.log(`Distribution URL: http://localhost:${PORT}/distribution`);
     console.log(`Mods served from: ${path.join(__dirname, 'mods')}`);

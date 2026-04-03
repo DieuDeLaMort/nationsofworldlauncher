@@ -129,7 +129,7 @@ function showDistroURLPrompt() {
 function parseLauncherVersion(verString) {
     const ret = {};
     let pts = verString.split('-');
-    ret.build = parseInt(pts[1].substring(1));
+    ret.build = pts[1] != null ? parseInt(pts[1].substring(1)) : 0;
     pts = pts[0].split('.');
     ret.update = parseInt(pts[2]);
     ret.minor = parseInt(pts[1]);
