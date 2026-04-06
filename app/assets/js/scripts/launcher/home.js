@@ -77,11 +77,11 @@ function gameUpdate() {
     });
 
     gameAssetEx.on('error', (err) => {
-        loggerLaunchSuite.error('Error during launch', err);
+        loggerGameAssetEx.error('Error during launch', err);
     })
     gameAssetEx.on('close', (code, signal) => {
         if(code !== 0) {
-            loggerLaunchSuite.error(`AssetExec exited with code ${code}, assuming error.`);
+            loggerGameAssetEx.error(`AssetExec exited with code ${code}, assuming error.`);
         }
     })
 

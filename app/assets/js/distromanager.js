@@ -117,9 +117,11 @@ class Module {
             case exports.Types.PalaMod:
                 this.artifact.path = path.join(ConfigManager.getInstanceDirectory(), instanceid, 'mods', modpth); // Forge custom
                 break;
-            case exports.Types.VersionManifest:
-                this.artifact.path = path.join(ConfigManager.getCommonDirectory(), 'versions', this.getIdentifier(), `${this.getIdentifier()}.json`)
+            case exports.Types.VersionManifest: {
+                const safeId = this.getIdentifier().replace(/[:<>"|?*]/g, '-');
+                this.artifact.path = path.join(ConfigManager.getCommonDirectory(), 'versions', safeId, `${safeId}.json`);
                 break;
+            }
             case exports.Types.File:
             default:
                 this.artifact.path = path.join(ConfigManager.getInstanceDirectory(), instanceid, pth)
