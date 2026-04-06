@@ -281,6 +281,25 @@ function gameUpdate() {
                 }
             }
 
+            if(m.result.error || !m.result.versionData || !m.result.forgeData) {
+                console.error('Error during validation:', m.result.error || 'Missing versionData or forgeData');
+                gameAssetEx.disconnect();
+                setGameTaskProgress(false);
+
+                setOverlayContent('Mise à jour échoué 😭',
+                    'Une erreur s\'est produite lors de la mise à jour du jeu.'
+                    + '<br><i class="fas fa-angle-right"></i> Nous vous conseillons de réessayer la mise à jour avec le bouton ci-dessous.', 
+                    'Annuler', 'Réessayer');
+                toggleOverlay(true);
+
+                setCloseHandler();
+                setActionHandler(() => {
+                    toggleOverlay(false);
+                    gameUpdate();
+                });
+                return;
+            }
+
             forgeData = m.result.forgeData;
             versionData = m.result.versionData;
 
