@@ -394,7 +394,7 @@ class AssetManager extends EventEmitter {
         const self = this;
         return new Promise((resolve, reject) => {
             //Asset constants
-            const resourceURL = 'http://resources.download.minecraft.net/';
+            const resourceURL = 'https://resources.download.minecraft.net/';
             const localPath = path.join(self.commonPath, 'assets');
             const objectPath = path.join(localPath, 'objects');
 
@@ -655,8 +655,18 @@ class AssetManager extends EventEmitter {
     static _finalizeForgeAsset(asset, commonPath) {
         return new Promise((resolve, reject) => {
             fs.readFile(asset.to, (err, data) => {
-                const zip = new AdmZip(data);
-                const zipEntries = zip.getEntries();
+                if(err) {
+                    reject(`Unable to read Forge file: ${err.message}`);
+                    return;
+                }
+                let zip, zipEntries;
+                try {
+                    zip = new AdmZip(data);
+                    zipEntries = zip.getEntries();
+                } catch(e) {
+                    reject(`Unable to open Forge archive (file may be corrupted): ${e.message}`);
+                    return;
+                }
 
                 for(let i = 0; i < zipEntries.length; i++) {
                     if(zipEntries[i].entryName === 'version.json') {
