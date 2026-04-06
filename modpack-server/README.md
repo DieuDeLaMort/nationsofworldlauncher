@@ -55,3 +55,9 @@ npm install
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `PORT` | `3000` | Server port |
+
+## External Accessibility
+
+> **Important:** The modpack server must be reachable externally on the configured port (default `27015` for this project).
+> Both `/distribution` and `/mods/*` endpoints must be publicly accessible from the internet so that launcher clients can fetch the distribution index and download mod/Java files.
+> Ensure your firewall, router port-forwarding, and any hosting firewall rules allow inbound TCP traffic on the configured port.
