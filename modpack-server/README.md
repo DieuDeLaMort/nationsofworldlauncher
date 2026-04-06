@@ -50,6 +50,12 @@ npm install
 | `File` | Any file (custom path) |
 | `VersionManifest` | Minecraft version manifest |
 
+## Important Notes
+
+- The server **must** expose both `/distribution` and `/mods/*` publicly at the correct IP and port (e.g. `http://163.5.59.154:27015`).
+- The Windows Java JDK ZIP (`amazon-corretto-17.0.18.9.1-windows-x64-jdk.zip`) is served from `/mods/` on this server. Place the file in the `mods/` folder.
+- If the launcher shows `ERR_CONNECTION_REFUSED`, verify that the Pterodactyl allocation port matches the port the server is actually listening on.
+
 ## Environment Variables
 
 | Variable | Default | Description |
