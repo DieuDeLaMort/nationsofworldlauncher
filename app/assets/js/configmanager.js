@@ -177,7 +177,7 @@ exports.setDistroCustom = function(distroCustom) {
 }
 
 exports.getDistroURL = function() {
-    let distroURL = 'http://163.5.59.154:27015/distribution';
+    let distroURL = 'https://raw.githubusercontent.com/DieuDeLaMort/nationsofworldlauncher/main/modpack-server/distribution.json';
     if(config.settings.launcher.distroCustom == 'true' && config.settings.launcher.distroURL != null) {
         distroURL = config.settings.launcher.distroURL;
     }

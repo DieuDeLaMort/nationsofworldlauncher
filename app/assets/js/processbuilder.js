@@ -162,6 +162,19 @@ class ProcessBuilder {
         args = args.concat(ConfigManager.getJVMOptions());
         args.push('-Djava.library.path=' + tempNativePath);
 
+        // Add Forge JVM arguments for modern Forge (1.17+, e.g. 47.x for 1.20.1)
+        if(this.forgeData.arguments && this.forgeData.arguments.jvm) {
+            const classpathSep = process.platform === 'win32' ? ';' : ':';
+            const forgeJvmArgs = this.forgeData.arguments.jvm
+                .filter(arg => typeof arg === 'string')
+                .map(arg => arg
+                    .replace('${library_directory}', this.libPath)
+                    .replace('${classpath_separator}', classpathSep)
+                    .replace('${version_name}', this.forgeData.id || '')
+                );
+            args = args.concat(forgeJvmArgs);
+        }
+
         args.push(this.forgeData.mainClass);
         args = args.concat(this._resolveForgeArgs());
         return args;
