@@ -168,7 +168,15 @@ class ProcessBuilder {
     }
 
     _resolveForgeArgs() {
-        const mcArgs = this.forgeData.minecraftArguments.split(' ');
+        // Minecraft 1.13+ uses arguments.game (array); older versions use minecraftArguments (string)
+        let mcArgs;
+        if(this.forgeData.minecraftArguments) {
+            mcArgs = this.forgeData.minecraftArguments.split(' ');
+        } else if(this.forgeData.arguments && this.forgeData.arguments.game) {
+            mcArgs = this.forgeData.arguments.game.filter(arg => typeof arg === 'string');
+        } else {
+            mcArgs = [];
+        }
         const argDiscovery = /\${*(.*)}/;
 
         for(let i = 0; i < mcArgs.length; ++i) {
