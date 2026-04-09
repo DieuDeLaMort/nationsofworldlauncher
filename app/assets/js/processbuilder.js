@@ -173,6 +173,27 @@ class ProcessBuilder {
                     .replaceAll('${version_name}', this.forgeData.id || '')
                 );
             args = args.concat(forgeJvmArgs);
+
+            // Fix Nashorn CoreMod reflection errors on Java 17+ (17.0.14+ / Java 21+).
+            // Forge 1.20.x coremods use Nashorn's JS engine with reflection; newer JVMs
+            // tightened access rules breaking field_to_method transforms with:
+            //   "IllegalStateException: Field f_xxxxx_ is not private and an instance field"
+            // The -Dnashorn.args flag suppresses the deprecation-guard that causes the crash.
+            args.push('-Dnashorn.args=--no-deprecation-warning');
+
+            // Ensure java.lang.reflect is accessible to Forge's secure jar handler and
+            // bootstrap launcher modules (required for CoreMod field/method transformations).
+            const reflectOpens = [
+                '--add-opens', 'java.base/java.lang.reflect=cpw.mods.securejarhandler',
+                '--add-opens', 'java.base/java.lang.reflect=cpw.mods.bootstraplauncher',
+            ];
+            for(let i = 0; i < reflectOpens.length; i += 2) {
+                const flag = reflectOpens[i];
+                const value = reflectOpens[i + 1];
+                if(!args.includes(value) || args[args.indexOf(value) - 1] !== flag) {
+                    args.push(flag, value);
+                }
+            }
         }
 
         args.push(this.forgeData.mainClass);
