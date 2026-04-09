@@ -779,9 +779,14 @@ class AssetManager extends EventEmitter {
      *   'literal'       -> literal string (strip quotes)
      *   [maven:coord]   -> path in libraries
      *   {KEY}           -> look up in data map (client side)
-     *   relative/path   -> relative to installer extraction dir
+     *
+     * When isDataValue is true (recursive call from a data map lookup), an
+     * unrecognised plain string is treated as a relative path inside the
+     * installer extraction directory (e.g. "data/client.lzma").
+     * When isDataValue is false (direct processor arg), plain strings such as
+     * "--task" or "BUNDLER_EXTRACT" are returned as-is.
      */
-    static _resolveInstallerValue(value, dataMap, commonPath, installerDir) {
+    static _resolveInstallerValue(value, dataMap, commonPath, installerDir, isDataValue = false) {
         if(value == null) return value;
         if(value.startsWith("'") && value.endsWith("'")) {
             return value.slice(1, -1);
@@ -793,16 +798,23 @@ class AssetManager extends EventEmitter {
             const key = value.slice(1, -1);
             const entry = dataMap[key];
             if(entry && typeof entry === 'object' && entry.client != null) {
-                return AssetManager._resolveInstallerValue(entry.client, dataMap, commonPath, installerDir);
+                // Pass isDataValue=true so the resolved data value can be treated
+                // as a relative path inside the installer if it has no special prefix.
+                return AssetManager._resolveInstallerValue(entry.client, dataMap, commonPath, installerDir, true);
             }
             return value;
         }
-        // Relative path inside installer — sanitize against ZipSlip / path traversal
-        const resolved = path.resolve(installerDir, value);
-        if(!resolved.startsWith(path.resolve(installerDir) + path.sep)) {
-            throw new Error('Path traversal detected in installer data value');
+        if(isDataValue) {
+            // Data map value without special prefix — treat as a relative path inside
+            // the installer extraction directory (e.g. "data/client.lzma").
+            const resolved = path.resolve(installerDir, value);
+            if(!resolved.startsWith(path.resolve(installerDir) + path.sep)) {
+                throw new Error('Path traversal detected in installer data value');
+            }
+            return resolved;
         }
-        return resolved;
+        // Direct processor argument (e.g. "--task", "BUNDLER_EXTRACT") — return as-is.
+        return value;
     }
 
     /**
@@ -854,7 +866,27 @@ class AssetManager extends EventEmitter {
             }
         }
 
-        const dataMap = installProfile.data || {};
+        // Build an augmented data map that includes special runtime tokens.
+        // These tokens are not in the install_profile.json data section but must
+        // be resolved by the launcher (mirroring what the official Forge installer does).
+        const dataMap = Object.assign({}, installProfile.data || {});
+        const mcVersion = installProfile.minecraft;
+        if(mcVersion) {
+            // {MINECRAFT_JAR} → the vanilla client JAR downloaded by the launcher
+            if(!dataMap.MINECRAFT_JAR || !dataMap.MINECRAFT_JAR.client || dataMap.MINECRAFT_JAR.client === 'null') {
+                const mcJarPath = path.join(commonPath, 'versions', mcVersion, `${mcVersion}.jar`);
+                dataMap.MINECRAFT_JAR = { client: `'${mcJarPath}'` };
+            }
+        }
+        // {SIDE} → always 'client' for a client-side installation
+        if(!dataMap.SIDE) {
+            dataMap.SIDE = { client: "'client'" };
+        }
+        // {INSTALLER} → path to the forge installer JAR itself
+        if(!dataMap.INSTALLER) {
+            dataMap.INSTALLER = { client: `'${installerPath}'` };
+        }
+
         const cpSep = process.platform === 'win32' ? ';' : ':';
 
         for(const proc of installProfile.processors) {
@@ -864,6 +896,8 @@ class AssetManager extends EventEmitter {
             const jarPath = AssetManager._mavenCoordToPath(proc.jar, commonPath);
             if(!fs.existsSync(jarPath)) {
                 console.warn(`[ForgeProcessor] Processor JAR not found, skipping: ${jarPath}`);
+                console.warn('[ForgeProcessor] The patched client files will not be created. ' +
+                    'Ensure the Forge installer JAR has been fully downloaded and extracted.');
                 continue;
             }
 
@@ -894,6 +928,7 @@ class AssetManager extends EventEmitter {
             }
 
             console.log(`[ForgeProcessor] Running processor: ${mainClass}`);
+            console.log(`[ForgeProcessor] Args: ${resolvedArgs.join(' ')}`);
             await new Promise((resolve, reject) => {
                 const child = child_process.spawn(
                     this.javaexec,
