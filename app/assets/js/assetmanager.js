@@ -764,7 +764,7 @@ class AssetManager extends EventEmitter {
         }
         const parts = coord.split(':');
         if(parts.length < 3) {
-            throw new Error(`Invalid Maven coordinate: ${coord}`);
+            throw new Error(`Invalid Maven coordinate (expected group:artifact:version[:classifier]): ${coord}`);
         }
         const group = parts[0].replace(/\./g, '/');
         const artifact = parts[1];
@@ -799,8 +799,8 @@ class AssetManager extends EventEmitter {
         }
         // Relative path inside installer — sanitize against ZipSlip / path traversal
         const resolved = path.resolve(installerDir, value);
-        if(!resolved.startsWith(path.resolve(installerDir) + path.sep) && resolved !== path.resolve(installerDir)) {
-            throw new Error(`Path traversal detected in installer value: ${value}`);
+        if(!resolved.startsWith(path.resolve(installerDir) + path.sep)) {
+            throw new Error('Path traversal detected in installer data value');
         }
         return resolved;
     }
@@ -811,10 +811,13 @@ class AssetManager extends EventEmitter {
     static _getJarMainClass(jarPath) {
         try {
             const zip = new AdmZip(jarPath);
-            const manifestText = zip.readAsText('META-INF/MANIFEST.MF');
-            if(manifestText) {
-                const match = manifestText.match(/Main-Class:\s*(\S+)/);
-                if(match) return match[1].trim();
+            const manifestEntry = zip.getEntry('META-INF/MANIFEST.MF');
+            if(manifestEntry) {
+                const manifestText = zip.readAsText(manifestEntry);
+                if(manifestText) {
+                    const match = manifestText.match(/Main-Class:\s*(\S+)/);
+                    if(match) return match[1].trim();
+                }
             }
         } catch(e) {
             console.warn(`Failed to read manifest from ${jarPath}: ${e.message}`);
