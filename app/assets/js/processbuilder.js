@@ -174,15 +174,6 @@ class ProcessBuilder {
                 );
             args = args.concat(forgeJvmArgs);
 
-            // Fix Nashorn CoreMod reflection errors on Java 17+ (17.0.14+ / Java 21+).
-            // Forge 1.20.x coremods use Nashorn's JS engine with reflection; newer JVMs
-            // tightened access rules breaking field_to_method transforms with:
-            //   "IllegalStateException: Field f_xxxxx_ is not private and an instance field"
-            // The -Dnashorn.args flag suppresses the deprecation-guard that causes the crash.
-            // Note: modern Forge (1.17+) already requires Java 17+ as its minimum version,
-            // so this arg is always appropriate when forgeData.arguments.jvm is present.
-            args.push('-Dnashorn.args=--no-deprecation-warning');
-
             // Ensure java.lang.reflect is accessible to Forge's secure jar handler and
             // bootstrap launcher modules (required for CoreMod field/method transformations).
             const reflectOpenPairs = [
