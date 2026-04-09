@@ -168,9 +168,9 @@ class ProcessBuilder {
             const forgeJvmArgs = this.forgeData.arguments.jvm
                 .filter(arg => typeof arg === 'string')
                 .map(arg => arg
-                    .replace('${library_directory}', this.libPath)
-                    .replace('${classpath_separator}', classpathSep)
-                    .replace('${version_name}', this.forgeData.id || '')
+                    .replaceAll('${library_directory}', this.libPath)
+                    .replaceAll('${classpath_separator}', classpathSep)
+                    .replaceAll('${version_name}', this.forgeData.id || '')
                 );
             args = args.concat(forgeJvmArgs);
         }
