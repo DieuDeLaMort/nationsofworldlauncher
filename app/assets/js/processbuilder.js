@@ -184,11 +184,17 @@ class ProcessBuilder {
         // Minecraft 1.13+ uses arguments.game (array); older versions use minecraftArguments (string)
         let mcArgs;
         if(this.forgeData.minecraftArguments) {
+            // Old Forge (1.12.2 and earlier): complete args string
             mcArgs = this.forgeData.minecraftArguments.split(' ');
-        } else if(this.forgeData.arguments && this.forgeData.arguments.game) {
-            mcArgs = this.forgeData.arguments.game.filter(arg => typeof arg === 'string');
         } else {
+            // Modern Forge (1.13+): merge vanilla game args + forge-specific game args
             mcArgs = [];
+            if(this.versionData.arguments && this.versionData.arguments.game) {
+                mcArgs = mcArgs.concat(this.versionData.arguments.game.filter(arg => typeof arg === 'string'));
+            }
+            if(this.forgeData.arguments && this.forgeData.arguments.game) {
+                mcArgs = mcArgs.concat(this.forgeData.arguments.game.filter(arg => typeof arg === 'string'));
+            }
         }
         const argDiscovery = /\${*(.*)}/;
 
@@ -202,7 +208,7 @@ class ProcessBuilder {
                         break;
                     }
                     case 'version_name': {
-                        val = this.instance.getMinecraftVersion();
+                        val = this.forgeData.id || this.instance.getMinecraftVersion();
                         break;
                     }
                     case 'game_directory': {
@@ -233,6 +239,18 @@ class ProcessBuilder {
                         val = this.authUser.type === 'offline' ? 'legacy' : 'msa';
                         break;
                     }
+                    case 'version_type': {
+                        val = this.versionData.type || 'release';
+                        break;
+                    }
+                    case 'clientid': {
+                        val = '0';
+                        break;
+                    }
+                    case 'auth_xuid': {
+                        val = this.authUser.xuid || '0';
+                        break;
+                    }
                 }
                 if(val != null) {
                     mcArgs[i] = val;
@@ -253,6 +271,10 @@ class ProcessBuilder {
         const mojangLibs = this._resolveMojangLibraries(tempNativePath);
         cpArgs = cpArgs.concat(mojangLibs);
 
+        // Add Forge libraries declared in forge's version.json (modern Forge 1.13+)
+        const forgeLibs = this._resolveForgeDataLibraries();
+        cpArgs = cpArgs.concat(forgeLibs);
+
         // Resolve the instance declared libraries.
         const instLibs = this._resolveInstanceLibraries();
         cpArgs = cpArgs.concat(instLibs);
@@ -261,6 +283,20 @@ class ProcessBuilder {
         cpArgs = cpArgs.concat(instMods);
 
         return cpArgs;
+    }
+
+    _resolveForgeDataLibraries() {
+        if(!this.forgeData || !this.forgeData.libraries) return [];
+        const libs = [];
+        for(const lib of this.forgeData.libraries) {
+            if(lib.downloads && lib.downloads.artifact && lib.downloads.artifact.path) {
+                const libPath = path.join(this.libPath, lib.downloads.artifact.path);
+                if(!libs.includes(libPath)) {
+                    libs.push(libPath);
+                }
+            }
+        }
+        return libs;
     }
 
     _resolveMojangLibraries(tempNativePath) {
