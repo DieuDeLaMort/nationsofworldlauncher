@@ -872,8 +872,12 @@ class AssetManager extends EventEmitter {
         const dataMap = Object.assign({}, installProfile.data || {});
         const mcVersion = installProfile.minecraft;
         if(mcVersion) {
-            // {MINECRAFT_JAR} → the vanilla client JAR downloaded by the launcher
-            if(!dataMap.MINECRAFT_JAR || !dataMap.MINECRAFT_JAR.client || dataMap.MINECRAFT_JAR.client === 'null') {
+            // {MINECRAFT_JAR} → the vanilla client JAR downloaded by the launcher.
+            // Some install_profile.json files contain a placeholder string 'null'
+            // for this token (the actual path is expected to be provided by the
+            // installer at runtime, not stored in the profile).
+            if(!dataMap.MINECRAFT_JAR || !dataMap.MINECRAFT_JAR.client ||
+                    dataMap.MINECRAFT_JAR.client === 'null' || dataMap.MINECRAFT_JAR.client === null) {
                 const mcJarPath = path.join(commonPath, 'versions', mcVersion, `${mcVersion}.jar`);
                 dataMap.MINECRAFT_JAR = { client: `'${mcJarPath}'` };
             }
@@ -928,7 +932,6 @@ class AssetManager extends EventEmitter {
             }
 
             console.log(`[ForgeProcessor] Running processor: ${mainClass}`);
-            console.log(`[ForgeProcessor] Args: ${resolvedArgs.join(' ')}`);
             await new Promise((resolve, reject) => {
                 const child = child_process.spawn(
                     this.javaexec,
