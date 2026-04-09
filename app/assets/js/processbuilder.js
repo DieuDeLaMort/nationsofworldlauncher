@@ -174,17 +174,14 @@ class ProcessBuilder {
                 );
             args = args.concat(forgeJvmArgs);
 
-            // Ensure java.lang.reflect is accessible to Forge's secure jar handler and
-            // bootstrap launcher modules (required for CoreMod field/method transformations).
-            const reflectOpenPairs = [
-                { flag: '--add-opens', value: 'java.base/java.lang.reflect=cpw.mods.securejarhandler' },
-                { flag: '--add-opens', value: 'java.base/java.lang.reflect=cpw.mods.bootstraplauncher' },
-            ];
-            for(const { flag, value } of reflectOpenPairs) {
-                const alreadyPresent = args.some((arg, idx) => arg === flag && args[idx + 1] === value);
-                if(!alreadyPresent) {
-                    args.push(flag, value);
-                }
+            // Open java.lang.reflect to ALL unnamed modules so that Forge's Nashorn-based
+            // coremods (which run as unnamed/classpath modules) can access private fields
+            // on Java 17.0.14+. Without this, ASMAPI.redirectFieldToMethod throws
+            // "Field X is not private and an instance field" on newer JDK 17 builds.
+            const reflectOpen = '--add-opens';
+            const reflectOpenVal = 'java.base/java.lang.reflect=ALL-UNNAMED';
+            if(!args.some((arg, idx) => arg === reflectOpen && args[idx + 1] === reflectOpenVal)) {
+                args.push(reflectOpen, reflectOpenVal);
             }
         }
 

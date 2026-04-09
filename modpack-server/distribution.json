@@ -30,7 +30,7 @@
             "ignored": [],
             "modules": [
                 {
-                    "id": "net.minecraftforge:forge:1.20.1-47.4.4",
+                    "id": "net.minecraftforge:forge:1.20.1-47.4.0",
                     "name": "Minecraft Forge 1.20.1",
                     "type": "ForgeHosted",
                     "required": {
@@ -39,7 +39,7 @@
                     },
                     "artifact": {
                         "size": 0,
-                        "url": "https://maven.minecraftforge.net/net/minecraftforge/forge/1.20.1-47.4.4/forge-1.20.1-47.4.4-installer.jar",
+                        "url": "https://maven.minecraftforge.net/net/minecraftforge/forge/1.20.1-47.4.0/forge-1.20.1-47.4.0-installer.jar",
                         "MD5": ""
                     },
                     "subModules": [
