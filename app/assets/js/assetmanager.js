@@ -1191,11 +1191,14 @@ class AssetManager extends EventEmitter {
                         }
                     }
                 } else {
-                    // Java 9+ (17, 21, etc.) – accept any 64-bit JDK
-                    meta.version = verOb;
-                    ++checksum;
-                    if(checksum === goal) {
-                        break;
+                    // Java 9-21: accept 64-bit JDK.
+                    // Java 22+ breaks Forge 1.20.x (stricter field-access rules).
+                    if(verOb.major <= 21) {
+                        meta.version = verOb;
+                        ++checksum;
+                        if(checksum === goal) {
+                            break;
+                        }
                     }
                 }
             }
@@ -1243,23 +1246,29 @@ class AssetManager extends EventEmitter {
     }
 
     async _win32JavaValidate(workingDir) {
+        // Check the bundled runtime folder first so the launcher always prefers
+        // the downloaded Java 17 over any system-installed JDK (e.g. jdk-24).
+        const runtimePathSet = await JavaManager._scanFileSystem(path.join(workingDir, 'runtime', 'x64'));
+        const runtimeArr = await this._validateJavaRootSet(runtimePathSet);
+        if(runtimeArr.length > 0) {
+            return JavaManager._sortValidJavaArray(runtimeArr)[0].execPath;
+        }
+
+        // Fall back to system Java only when no valid bundled runtime is found.
         const pathSet1 = await JavaManager._scanFileSystem('C:\\Program Files\\Java');
-        const pathSet2 = await JavaManager._scanFileSystem(path.join(workingDir, 'runtime', 'x64'));
 
-        const homeSet = new Set([...pathSet1, ...pathSet2]);
+        const homeSet = new Set([...pathSet1]);
 
-        // Validate JAVA_HOME.
         const jHome = JavaManager._scanJavaHome();
         if(jHome != null && jHome.indexOf('(x86)') === -1) {
             homeSet.add(jHome);
         }
 
         let pathArr = await this._validateJavaRootSet(homeSet);
-        
+
         if(pathArr.length > 0) {
-            return pathArr[0].execPath;
-        } 
-        else {
+            return JavaManager._sortValidJavaArray(pathArr)[0].execPath;
+        } else {
             return null;
         }
     }
