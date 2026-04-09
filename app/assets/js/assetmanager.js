@@ -998,6 +998,14 @@ class AssetManager extends EventEmitter {
 
             // Modern Forge (1.13+): run install_profile.json processors to create patched client
             if(forgeData && forgeData.installProfile) {
+                // Download processor tool libraries declared in install_profile.json
+                if(forgeData.installProfile.libraries) {
+                    await this.validateForgeLibraries({ libraries: forgeData.installProfile.libraries });
+                    if(this.forge.dlqueue.length > 0) {
+                        await this.processDlQueues([{id: 'forge', limit: 3}]);
+                    }
+                }
+
                 const forgeMdl = instance.getModules().find(m =>
                     m.getType() === DistroManager.Types.ForgeHosted ||
                     m.getType() === DistroManager.Types.Forge
