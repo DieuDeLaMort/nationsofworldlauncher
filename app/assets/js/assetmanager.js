@@ -695,27 +695,267 @@ class AssetManager extends EventEmitter {
                     return;
                 }
 
-                for(let i = 0; i < zipEntries.length; i++) {
-                    if(zipEntries[i].entryName === 'version.json') {
-                        const forgeVersion = JSON.parse(zip.readAsText(zipEntries[i]));
-                        const versionPath = path.join(commonPath, 'versions', forgeVersion.id);
-                        const versionFile = path.join(versionPath, forgeVersion.id + '.json');
-                        if(!fs.existsSync(versionFile)) {
-                            fs.ensureDirSync(versionPath);
-                            fs.writeFileSync(path.join(versionPath, forgeVersion.id + '.json'), zipEntries[i].getData());
-                            resolve(forgeVersion);
-                        } 
-                        else {
-                            //Read the saved file to allow for user modifications.
-                            resolve(JSON.parse(fs.readFileSync(versionFile, 'utf-8')));
+                let versionEntry = null;
+                let installProfileEntry = null;
+                const libBasePath = path.resolve(path.join(commonPath, 'libraries'));
+
+                for(const entry of zipEntries) {
+                    if(entry.entryName === 'version.json') {
+                        versionEntry = entry;
+                    }
+                    if(entry.entryName === 'install_profile.json') {
+                        installProfileEntry = entry;
+                    }
+                    // Modern Forge installer: extract embedded maven JARs to libraries directory
+                    if(entry.entryName.startsWith('maven/') && !entry.isDirectory) {
+                        const relPath = entry.entryName.substring('maven/'.length);
+                        const destPath = path.resolve(path.join(commonPath, 'libraries', relPath));
+                        // Prevent ZipSlip: ensure destination is within libraries directory
+                        if(!destPath.startsWith(libBasePath + path.sep)) {
+                            console.warn(`[ForgeAsset] Skipping suspicious installer entry: ${entry.entryName}`);
+                            continue;
                         }
-                        return;
+                        if(!fs.existsSync(destPath)) {
+                            try {
+                                fs.ensureDirSync(path.dirname(destPath));
+                                fs.writeFileSync(destPath, entry.getData());
+                            } catch(e) {
+                                console.warn(`Failed to extract embedded lib ${relPath}: ${e.message}`);
+                            }
+                        }
                     }
                 }
+
+                if(versionEntry != null) {
+                    const forgeVersion = JSON.parse(zip.readAsText(versionEntry));
+                    const versionPath = path.join(commonPath, 'versions', forgeVersion.id);
+                    const versionFile = path.join(versionPath, forgeVersion.id + '.json');
+                    if(!fs.existsSync(versionFile)) {
+                        fs.ensureDirSync(versionPath);
+                        fs.writeFileSync(versionFile, versionEntry.getData());
+                    }
+
+                    let installProfile = null;
+                    if(installProfileEntry != null) {
+                        installProfile = JSON.parse(zip.readAsText(installProfileEntry));
+                    }
+
+                    // Return forge version data plus install profile for modern Forge
+                    resolve(Object.assign({}, forgeVersion, { installProfile }));
+                    return;
+                }
+
                 //We didn't find forge's version.json.
                 reject('Unable to finalize Forge processing, version.json not found! Has forge changed their format?');
             })
         })
+    }
+
+    /**
+     * Resolve a Maven coordinate string (e.g. "group:artifact:version:classifier@ext")
+     * to an absolute file path under the common libraries directory.
+     */
+    static _mavenCoordToPath(coord, commonPath) {
+        let ext = 'jar';
+        if(coord.includes('@')) {
+            const atParts = coord.split('@');
+            ext = atParts[1];
+            coord = atParts[0];
+        }
+        const parts = coord.split(':');
+        if(parts.length < 3) {
+            throw new Error(`Invalid Maven coordinate: ${coord}`);
+        }
+        const group = parts[0].replace(/\./g, '/');
+        const artifact = parts[1];
+        const version = parts[2];
+        const classifier = parts[3] ? `-${parts[3]}` : '';
+        return path.join(commonPath, 'libraries', group, artifact, version, `${artifact}-${version}${classifier}.${ext}`);
+    }
+
+    /**
+     * Resolve an install_profile data value to an absolute file path or literal.
+     * Values can be:
+     *   'literal'       -> literal string (strip quotes)
+     *   [maven:coord]   -> path in libraries
+     *   {KEY}           -> look up in data map (client side)
+     *   relative/path   -> relative to installer extraction dir
+     */
+    static _resolveInstallerValue(value, dataMap, commonPath, installerDir) {
+        if(value == null) return value;
+        if(value.startsWith("'") && value.endsWith("'")) {
+            return value.slice(1, -1);
+        }
+        if(value.startsWith('[') && value.endsWith(']')) {
+            return AssetManager._mavenCoordToPath(value.slice(1, -1), commonPath);
+        }
+        if(value.startsWith('{') && value.endsWith('}')) {
+            const key = value.slice(1, -1);
+            const entry = dataMap[key];
+            if(entry && typeof entry === 'object' && entry.client != null) {
+                return AssetManager._resolveInstallerValue(entry.client, dataMap, commonPath, installerDir);
+            }
+            return value;
+        }
+        // Relative path inside installer — sanitize against ZipSlip / path traversal
+        const resolved = path.resolve(installerDir, value);
+        if(!resolved.startsWith(path.resolve(installerDir) + path.sep) && resolved !== path.resolve(installerDir)) {
+            throw new Error(`Path traversal detected in installer value: ${value}`);
+        }
+        return resolved;
+    }
+
+    /**
+     * Get the Main-Class entry from a JAR manifest.
+     */
+    static _getJarMainClass(jarPath) {
+        try {
+            const zip = new AdmZip(jarPath);
+            const manifestText = zip.readAsText('META-INF/MANIFEST.MF');
+            if(manifestText) {
+                const match = manifestText.match(/Main-Class:\s*(\S+)/);
+                if(match) return match[1].trim();
+            }
+        } catch(e) {
+            console.warn(`Failed to read manifest from ${jarPath}: ${e.message}`);
+        }
+        return null;
+    }
+
+    /**
+     * Run Forge install_profile.json processors to produce the patched Forge client JAR.
+     * Only runs client-side processors that have not already produced their output.
+     */
+    async _runForgeProcessors(installProfile, commonPath, installerPath) {
+        if(!installProfile || !installProfile.processors || installProfile.processors.length === 0) {
+            return;
+        }
+
+        // Extract data files (e.g. data/client.lzma) from installer to a temp directory
+        const installerDir = path.join(commonPath, 'forge-installer-tmp');
+        fs.ensureDirSync(installerDir);
+        const installerZip = new AdmZip(installerPath);
+        const installerDirResolved = path.resolve(installerDir);
+        for(const entry of installerZip.getEntries()) {
+            if(entry.entryName.startsWith('data/') && !entry.isDirectory) {
+                const dest = path.resolve(installerDir, entry.entryName);
+                // Prevent ZipSlip: ensure destination is within installerDir
+                if(!dest.startsWith(installerDirResolved + path.sep)) {
+                    console.warn(`[ForgeProcessor] Skipping suspicious entry: ${entry.entryName}`);
+                    continue;
+                }
+                if(!fs.existsSync(dest)) {
+                    fs.ensureDirSync(path.dirname(dest));
+                    fs.writeFileSync(dest, entry.getData());
+                }
+            }
+        }
+
+        const dataMap = installProfile.data || {};
+        const cpSep = process.platform === 'win32' ? ';' : ':';
+
+        for(const proc of installProfile.processors) {
+            // Only run client-side processors
+            if(proc.sides && !proc.sides.includes('client')) continue;
+
+            const jarPath = AssetManager._mavenCoordToPath(proc.jar, commonPath);
+            if(!fs.existsSync(jarPath)) {
+                console.warn(`[ForgeProcessor] Processor JAR not found, skipping: ${jarPath}`);
+                continue;
+            }
+
+            const mainClass = AssetManager._getJarMainClass(jarPath);
+            if(!mainClass) {
+                console.warn(`[ForgeProcessor] Cannot determine main class for: ${jarPath}`);
+                continue;
+            }
+
+            const cpPaths = [jarPath];
+            for(const cpCoord of (proc.classpath || [])) {
+                const cpPath = AssetManager._mavenCoordToPath(cpCoord, commonPath);
+                cpPaths.push(cpPath);
+            }
+
+            const resolvedArgs = (proc.args || []).map(arg =>
+                AssetManager._resolveInstallerValue(arg, dataMap, commonPath, installerDir)
+            );
+
+            // Determine the output file from --output argument to skip if already done
+            const outIdx = resolvedArgs.indexOf('--output');
+            if(outIdx !== -1 && resolvedArgs[outIdx + 1]) {
+                const outFile = resolvedArgs[outIdx + 1];
+                if(fs.existsSync(outFile)) {
+                    console.log(`[ForgeProcessor] Output already exists, skipping: ${outFile}`);
+                    continue;
+                }
+            }
+
+            console.log(`[ForgeProcessor] Running processor: ${mainClass}`);
+            await new Promise((resolve, reject) => {
+                const child = child_process.spawn(
+                    this.javaexec,
+                    ['-cp', cpPaths.join(cpSep), mainClass, ...resolvedArgs],
+                    { stdio: ['pipe', 'pipe', 'pipe'] }
+                );
+                child.stdout.on('data', d => console.log('[ForgeProcessor]', d.toString().trim()));
+                child.stderr.on('data', d => console.warn('[ForgeProcessor]', d.toString().trim()));
+                child.on('close', (code) => {
+                    if(code === 0) {
+                        resolve();
+                    } else {
+                        reject(new Error(`Forge processor ${mainClass} exited with code ${code}`));
+                    }
+                });
+                child.on('error', reject);
+            });
+        }
+
+        // Clean up temp dir
+        try { fs.removeSync(installerDir); } catch(e) { console.warn('Failed to clean up installer temp dir:', e.message); }
+    }
+
+    /**
+     * Validate and queue Forge-specific libraries declared in forge's version.json.
+     * These are separate from the vanilla Mojang libraries.
+     */
+    validateForgeLibraries(forgeData) {
+        const self = this;
+        return new Promise((resolve) => {
+            if(!forgeData || !forgeData.libraries) {
+                resolve();
+                return;
+            }
+
+            const libPath = path.join(self.commonPath, 'libraries');
+            const libDlQueue = [];
+            let dlSize = 0;
+
+            for(const lib of forgeData.libraries) {
+                if(!Library.validateRules(lib.rules, lib.natives)) continue;
+                const artifact = lib.downloads && lib.downloads.artifact;
+                if(!artifact || !artifact.url || artifact.url === '') continue; // Skip embedded (no URL)
+
+                const libItm = new Library(
+                    lib.name,
+                    artifact.sha1,
+                    artifact.size || 0,
+                    artifact.url,
+                    path.join(libPath, artifact.path)
+                );
+
+                if(!AssetManager._validateLocal(libItm.to, 'sha1', libItm.hash)) {
+                    dlSize += (libItm.size * 1) || 0;
+                    libDlQueue.push(libItm);
+                }
+            }
+
+            // Merge into forge tracker
+            self.forge = new DLTracker(
+                self.forge.dlqueue.concat(libDlQueue),
+                self.forge.dlsize + dlSize
+            );
+            resolve();
+        });
     }
 
     async validateEverything(instanceid) {
@@ -744,6 +984,29 @@ class AssetManager extends EventEmitter {
 
             await this.processDlQueues();
             const forgeData = await this.loadForgeData(instance);
+
+            // Modern Forge (1.13+): download Forge-specific libraries declared in version.json
+            if(forgeData && forgeData.libraries) {
+                await this.validateForgeLibraries(forgeData);
+                if(this.forge.dlqueue.length > 0) {
+                    await this.processDlQueues([{id: 'forge', limit: 3}]);
+                }
+            }
+
+            // Modern Forge (1.13+): run install_profile.json processors to create patched client
+            if(forgeData && forgeData.installProfile) {
+                const forgeMdl = instance.getModules().find(m =>
+                    m.getType() === DistroManager.Types.ForgeHosted ||
+                    m.getType() === DistroManager.Types.Forge
+                );
+                if(forgeMdl) {
+                    try {
+                        await this._runForgeProcessors(forgeData.installProfile, this.commonPath, forgeMdl.getArtifact().getPath());
+                    } catch(err) {
+                        console.warn('Forge processor error (non-fatal, game may still launch):', err);
+                    }
+                }
+            }
 
             return {
                 versionData,
