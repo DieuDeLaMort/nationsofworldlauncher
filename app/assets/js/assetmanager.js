@@ -805,8 +805,15 @@ class AssetManager extends EventEmitter {
             return value;
         }
         if(isDataValue) {
-            // Data map value without special prefix — treat as a relative path inside
-            // the installer extraction directory (e.g. "data/client.lzma").
+            // Data map value without special prefix.
+            // If it is already an absolute path (e.g. a runtime-resolved library path
+            // provided by the launcher itself), return it directly — these are legitimate
+            // paths to local files and do not represent a traversal attack.
+            if(path.isAbsolute(value)) {
+                return value;
+            }
+            // Relative path — resolve inside the installer extraction directory
+            // (e.g. "data/client.lzma").
             const resolved = path.resolve(installerDir, value);
             if(!resolved.startsWith(path.resolve(installerDir) + path.sep)) {
                 throw new Error('Path traversal detected in installer data value');

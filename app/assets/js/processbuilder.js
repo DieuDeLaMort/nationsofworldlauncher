@@ -263,9 +263,17 @@ class ProcessBuilder {
     classpathArg(tempNativePath) {
         let cpArgs = [];
 
-        // Add the version.jar to the classpath.
-        const version = this.versionData.id;
-        cpArgs.push(path.join(this.commonDir, 'versions', version, version + '.jar'));
+        // For legacy Forge / vanilla, the version JAR must be on the classpath.
+        // Modern Forge (1.17+) uses BootstrapLauncher + SecureJars to manage the
+        // vanilla client JAR internally.  Adding it to -cp causes BootstrapLauncher
+        // to load it as an auto-named module (_1._20._1) which conflicts with the
+        // patched forge-client module (minecraft) that exports the same packages
+        // (e.g. net.minecraft.server), producing a ResolutionException at startup.
+        const isModernForge = !!(this.forgeData && this.forgeData.arguments && this.forgeData.arguments.jvm);
+        if(!isModernForge) {
+            const version = this.versionData.id;
+            cpArgs.push(path.join(this.commonDir, 'versions', version, version + '.jar'));
+        }
 
         // Resolve the Mojang declared libraries.
         const mojangLibs = this._resolveMojangLibraries(tempNativePath);
