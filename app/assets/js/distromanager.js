@@ -118,8 +118,8 @@ class Module {
                 this.artifact.path = path.join(ConfigManager.getInstanceDirectory(), instanceid, 'mods', modpth); // Forge custom
                 break;
             case exports.Types.VersionManifest: {
-                const safeId = this.getIdentifier().replace(/[:<>"|?*]/g, '-');
-                this.artifact.path = path.join(ConfigManager.getCommonDirectory(), 'versions', safeId, `${safeId}.json`);
+                const mcVersion = this.getVersion();
+                this.artifact.path = path.join(ConfigManager.getCommonDirectory(), 'versions', mcVersion, `${mcVersion}.json`);
                 break;
             }
             case exports.Types.File:

@@ -728,7 +728,7 @@
 /* #region */
 
 #launcher-betalauncher-panel {
-    background-image: url("http://51.77.196.230/launcher/beta-version/swinger/launcher/background.png");
+    background-image: url("./assets/images/launcher/background.png");
     background-position: 50% 35%;
     background-repeat: no-repeat;
     background-size: cover;

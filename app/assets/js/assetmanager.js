@@ -178,10 +178,28 @@ class JavaManager extends EventEmitter {
     }
 
     static parseJavaRuntimeVersion(verString) {
+        if(!verString || typeof verString !== 'string') {
+            return null;
+        }
         const major = verString.split('.')[0];
         if(major == 1) {
             return JavaManager._parseJavaRuntimeVersion_8(verString);
         }
+        // Java 9+ uses a simple major.minor.patch version scheme
+        return JavaManager._parseJavaRuntimeVersion_9(verString);
+    }
+
+    static _parseJavaRuntimeVersion_9(verString) {
+        // e.g. "17.0.9" or "17.0.9+9"
+        const ret = {};
+        const pts = verString.split('+')[0].split('.');
+        ret.major = parseInt(pts[0]);
+        if(isNaN(ret.major)) {
+            return null;
+        }
+        ret.minor = parseInt(pts[1]) || 0;
+        ret.patch = parseInt(pts[2]) || 0;
+        return ret;
     }
 
     static _parseJavaRuntimeVersion_8(verString) {
@@ -285,6 +303,15 @@ class AssetManager extends EventEmitter {
         let alist = [];
         let asize = 0;
         for(let ob of modules) {
+            // VersionManifest is fetched separately via loadVersionData; skip it here
+            if(ob.getType() === DistroManager.Types.VersionManifest) {
+                if(ob.getSubModules() != null) {
+                    let dltrack = this._parseDistroModules(ob.getSubModules(), version, instanceid);
+                    asize += dltrack.dlsize*1;
+                    alist = alist.concat(dltrack.dlqueue);
+                }
+                continue;
+            }
             let obArtifact = ob.getArtifact();
             let obPath = obArtifact.getPath();
             let artifact = new DistroModule(ob.getIdentifier(), obArtifact.getHash(), obArtifact.getSize(), obArtifact.getURL(), obPath, ob.getType());
@@ -834,6 +861,7 @@ class AssetManager extends EventEmitter {
             else if(props[i].indexOf('java.runtime.version') > -1) {
                 let verString = props[i].split('=')[1].trim();
                 const verOb = JavaManager.parseJavaRuntimeVersion(verString);
+                if(verOb == null) continue;
                 if(verOb.major < 9) {
                     // Java 8
                     if(verOb.major === 8 && verOb.update >= 51) {
@@ -842,6 +870,13 @@ class AssetManager extends EventEmitter {
                         if(checksum === goal) {
                             break;
                         }
+                    }
+                } else {
+                    // Java 9+ (17, 21, etc.) – accept any 64-bit JDK
+                    meta.version = verOb;
+                    ++checksum;
+                    if(checksum === goal) {
+                        break;
                     }
                 }
             }
