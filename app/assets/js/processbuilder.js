@@ -183,14 +183,13 @@ class ProcessBuilder {
 
             // Ensure java.lang.reflect is accessible to Forge's secure jar handler and
             // bootstrap launcher modules (required for CoreMod field/method transformations).
-            const reflectOpens = [
-                '--add-opens', 'java.base/java.lang.reflect=cpw.mods.securejarhandler',
-                '--add-opens', 'java.base/java.lang.reflect=cpw.mods.bootstraplauncher',
+            const reflectOpenPairs = [
+                { flag: '--add-opens', value: 'java.base/java.lang.reflect=cpw.mods.securejarhandler' },
+                { flag: '--add-opens', value: 'java.base/java.lang.reflect=cpw.mods.bootstraplauncher' },
             ];
-            for(let i = 0; i < reflectOpens.length; i += 2) {
-                const flag = reflectOpens[i];
-                const value = reflectOpens[i + 1];
-                if(!args.includes(value) || args[args.indexOf(value) - 1] !== flag) {
+            for(const { flag, value } of reflectOpenPairs) {
+                const alreadyPresent = args.some((arg, idx) => arg === flag && args[idx + 1] === value);
+                if(!alreadyPresent) {
                     args.push(flag, value);
                 }
             }
